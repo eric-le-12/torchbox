@@ -46,7 +46,7 @@ Suppose you have implemented a custom metrics, for example the Thresholded Jacca
 
 # Quick start
 
-## Usage
+## Example Usage
 
 1. Starting by cloning this github into your machine
 
