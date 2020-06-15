@@ -1,0 +1,9 @@
+-----Epoch 1 / 3 
+ Training loss: 0.645140233139197 - Other training metrics: {'accuracy_score': 0.6041666666666666, 'f1_score': 0.5077380952380953} 
+ Validation loss : 0.3762645769119263 - Other validation metrics:{'accuracy_score': 0.84, 'f1_score': 0.826388888888889}
+-----Epoch 2 / 3 
+ Training loss: 0.5138664568463961 - Other training metrics: {'accuracy_score': 0.671875, 'f1_score': 0.601686507936508} 
+ Validation loss : 0.29683370411396026 - Other validation metrics:{'accuracy_score': 0.92, 'f1_score': 0.9080882352941178}
+-----Epoch 3 / 3 
+ Training loss: 0.5051526197542747 - Other training metrics: {'accuracy_score': 0.7118055555555556, 'f1_score': 0.6491402116402119} 
+ Validation loss : 0.19024442702531816 - Other validation metrics:{'accuracy_score': 1.0, 'f1_score': 1.0}
