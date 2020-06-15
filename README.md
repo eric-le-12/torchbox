@@ -60,6 +60,7 @@ Suppose you have implemented a custom metrics, for example the Thresholded Jacca
 # Documentation
 
 ## The config files
+location : cfg/tenes.cfg
 
 The config file is the core file in this package. It contains core parameters to train. While most of them are interpretable, I provide here docs for some important params.
 
