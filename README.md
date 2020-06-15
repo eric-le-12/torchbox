@@ -48,6 +48,8 @@ Suppose you have implemented a custom metrics, for example the Thresholded Jacca
 
 ## Example Usage
 
+I have already implemented a built-in classification example. To use it:
+
 1. Starting by cloning this github into your machine
 
 2. CD to the project folder and install dependencies 
@@ -56,6 +58,11 @@ Suppose you have implemented a custom metrics, for example the Thresholded Jacca
 
 4. Run : `python train.py`
 
+You should expect to see sthing like this:
+
+![](https://i.imgur.com/UyQ6mzK.png)
+
+The log files for training is available in saved/logs folder
 
 # Documentation
 
