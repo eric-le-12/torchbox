@@ -8,6 +8,8 @@ import json
 from data_loader import transform
 from model import classification as cls
 
+# use this file if you want to quickly test your model
+
 with open("cfgs/tenes.cfg") as f:
     cfg = json.load(f)
 
