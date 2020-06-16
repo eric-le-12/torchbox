@@ -1,6 +1,8 @@
 # torchbox - a fully customizable deep learning implementation solution in Pytorch
 implement and fine-tune your deep learning model in an easy, customizable and fastest way 
 
+@Lexuanhieu131297 - First version created by Oct 2019
+
 # Introduction
 
 Several problems that deep learning researchers usually face is that: 
@@ -15,7 +17,7 @@ resuable code, which is time effective
 4. To few metrics
 
 I therefore release torchbox, a Deep Learning implementation tool for students, and scientists that can tackle these aforementioned problems.
-torchbox provides you a fast, clean, structured and repeatable implementation and fine-tuning of your custom Deep Learning models. Moreoever, you can add as many metrics as you can to measure your model, all you need to provide is the metric's class and its methods. For example, we already integrated all of Sklearn metrics, all you need to do is provide the metric method names, example: f1_score, precision_score, etc... No more painful metrics coding!!
+torchbox provides you a fast, clean, structured and repeatable implementation and fine-tuning of your custom Deep Learning models. Moreoever, you can add as many metrics as you can to measure your model, all you need to provide is the metric's class and its methods. For example, we already integrated all of Sklearn metrics, all you need to do is provide the metric method names, example: f1_score, precision_score, etc... No more painful metrics coding!!!
 
 # What it provides
 
@@ -152,6 +154,8 @@ See data_loader/transform.py for customizing the transformation
 See trainer.py, the file containing scripts for training one entire epoch.
 
 ## Making new projects 
+
+To make a new project with neccessary files:
 
 `python new_project ../new-project
 `
