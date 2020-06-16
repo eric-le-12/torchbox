@@ -5,10 +5,10 @@ implement and fine-tune your deep learning model in an easy, customizable and fa
 
 # Introduction
 
-Several problems that deep learning researchers usually face is that: 
+Several problems that deep learning researchers usually face are that: 
 
 1. Everytime they train a model, they have to replicate or copy&paste many 
-resuable code, which is time effective
+resuable code, which is time-expansive
 
 2. The code is unstructed and unclean, making it more difficult to read and interpret
 
