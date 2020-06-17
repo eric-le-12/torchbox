@@ -57,6 +57,7 @@ def main():
     # global model
     model = model.to(device)
     print("Model created...")
+    
     # create a metric for evaluating
     # global train_metrics
     # global val_metrics
@@ -92,6 +93,7 @@ def main():
     print("Beginning training...")
     # training models
     num_epoch = int(cfg["train"]["num_epoch"])
+    best_val_acc = 0
     for i in range(0, num_epoch):
         loss, val_loss, train_result, val_result = trainer.train_one_epoch(
             model,
@@ -120,6 +122,14 @@ def main():
         )
         logging.info(val_result)
         logging.info("\n")
+        # saving epoch with best validation accuracy
+        if (best_val_acc < float (val_result["accuracy_score"])):
+            print("Validation accuracy= ",val_result["accuracy_score"], "===> Save best epoch")
+            best_val_acc = val_result["accuracy_score"]
+            torch.save(model.state_dict(), "saved/models/" + cfg["train"]["save_as_name"])
+        else:
+            print("Validation accuracy= ",val_result["accuracy_score"], "===> No saving")
+            continue
 
     # testing on test set
     test_data = cfg["data"]["test_csv_name"]
@@ -135,10 +145,15 @@ def main():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     test_loader = torch.utils.data.DataLoader(testing_set, batch_size=1, shuffle=False)
     print("Inference on the testing set")
-    tester.test_result(model, test_loader, device)
+    
+    # load the test model and making inference
+    test_model = cls.ClassificationModel(model_name=extractor_name).create_model()
+    model_path = os.path.join("saved/models", cfg["train"]["save_as_name"])
+    test_model.load_state_dict(torch.load(model_path))
+    test_model = test_model.to(device)
+    tester.test_result(test_model, test_loader, device)
 
     # saving torch models
-    torch.save(model, "saved/models/" + cfg["train"]["save_as_name"])
 
 
 if __name__ == "__main__":

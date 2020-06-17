@@ -48,7 +48,7 @@ if __name__ == "__main__":
         test_df, data_path, transform.val_transform
     )
     # make dataloader
-    val_loader = torch.utils.data.DataLoader(testing_set, batch_size=1, shuffle=False,)
+    test_loader = torch.utils.data.DataLoader(testing_set, batch_size=1, shuffle=False,)
     # load model
     extractor_name = cfg["train"]["extractor"]
     model = cls.ClassificationModel(model_name=extractor_name).create_model()
