@@ -14,7 +14,7 @@ from sklearn.model_selection import train_test_split
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import ssl
 import os
-
+from datetime import datetime
 
 def main():
     # read configure file
@@ -88,7 +88,8 @@ def main():
     )
 
     # before training, let's create a file for logging model result
-    log_file = logger.make_file(cfg["session"]["sess_name"])
+    time_str = str(datetime.now().strftime("%Y%m%d-%H%M"))
+    log_file = logger.make_file(cfg["session"]["sess_name"],time_str)
     logger.log_initilize(log_file)
     print("Beginning training...")
     # training models
@@ -148,7 +149,7 @@ def main():
     
     # load the test model and making inference
     test_model = cls.ClassificationModel(model_name=extractor_name).create_model()
-    model_path = os.path.join("saved/models", cfg["train"]["save_as_name"])
+    model_path = os.path.join("saved/models", time_str+cfg["train"]["save_as_name"])
     test_model.load_state_dict(torch.load(model_path))
     test_model = test_model.to(device)
     tester.test_result(test_model, test_loader, device)
