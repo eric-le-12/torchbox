@@ -53,7 +53,7 @@ def main():
     extractor_name = cfg["train"]["extractor"]
     model = cls.ClassificationModel(model_name=extractor_name).create_model()
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    logging.info("Using device: ", device)
+    logging.info("Using device: {} ".format( device))
     # convert to suitable device
     # global model
     model = model.to(device)
