@@ -100,6 +100,17 @@ def main():
     log_file = logger.make_file(cfg["session"]["sess_name"],time_str)
     logger.log_initilize(log_file)
     print("Beginning training...")
+    # export the result to log file
+    f = open("cfgs/tenes.cfg","w+")
+    logging.info("-----")
+    logging.info("session name: {} \n".format(cfg["session"]["sess_name"]))
+    logging.info(model)
+    logging.info("\n")
+    logging.info("CONFIGS")
+    # logging the configs:
+    for line in f:
+        logging.info(line)
+        logging.info("\n")
     # training models
     num_epoch = int(cfg["train"]["num_epoch"])
     best_val_acc = 0
@@ -117,18 +128,6 @@ def main():
 
         # lr scheduling
         scheduler.step(val_loss)
-
-        # export the result to log file
-        logging.info("-----")
-        logging.info("session name: {} \n".format(cfg["session"]["sess_name"]))
-        logging.info(model)
-        logging.info("\n")
-        logging.info("CONFIGS")
-        # logging the configs:
-        for line in f:
-            logging.info(line)
-            logging.info("\n")
-
         logging.info(
             "Epoch {} / {} \n Training loss: {} - Other training metrics: ".format(
                 i + 1, num_epoch, loss
