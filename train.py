@@ -3,6 +3,7 @@ from data_loader import dataloader
 from model import classification as cls
 from utils import metrics as metrics
 from utils import logger
+from utils import custom_loss
 from data_loader import transform
 import pandas as pd
 import torch
@@ -72,8 +73,15 @@ def main():
     learning_rate = cfg["optimizer"]["lr"]
 
     # initlize optimizing methods : lr, scheduler of lr, optimizer
-    criterion = getattr(
+    try:
+        # if the loss function comes from nn package
+        criterion = getattr(
         nn, loss_function, "The loss {} is not available".format(loss_function)
+    )
+    except:
+        # use custom loss
+        criterion = getattr(
+        custom_loss, loss_function, "The loss {} is not available".format(loss_function)
     )
     criterion = criterion()
     optimizer = getattr(
@@ -112,6 +120,15 @@ def main():
 
         # export the result to log file
         logging.info("-----")
+        logging.info("session name: {} \n".format(cfg["session"]["sess_name"]))
+        logging.info(model)
+        logging.info("\n")
+        logging.info("CONFIGS")
+        # logging the configs:
+        for line in f:
+            logging.info(line)
+            logging.info("\n")
+
         logging.info(
             "Epoch {} / {} \n Training loss: {} - Other training metrics: ".format(
                 i + 1, num_epoch, loss
@@ -127,7 +144,7 @@ def main():
         if (best_val_acc < float (val_result["accuracy_score"])):
             print("Validation accuracy= ",val_result["accuracy_score"], "===> Save best epoch")
             best_val_acc = val_result["accuracy_score"]
-            torch.save(model.state_dict(), "saved/models/" + cfg["train"]["save_as_name"])
+            torch.save(model.state_dict(), "saved/models/" +  time_str+'-'+cfg["train"]["save_as_name"])
         else:
             print("Validation accuracy= ",val_result["accuracy_score"], "===> No saving")
             continue
@@ -149,10 +166,10 @@ def main():
     
     # load the test model and making inference
     test_model = cls.ClassificationModel(model_name=extractor_name).create_model()
-    model_path = os.path.join("saved/models", time_str+cfg["train"]["save_as_name"])
+    model_path = os.path.join("saved/models", time_str+'-'+cfg["train"]["save_as_name"])
     test_model.load_state_dict(torch.load(model_path))
     test_model = test_model.to(device)
-    tester.test_result(test_model, test_loader, device)
+    logging.info(tester.test_result(test_model, test_loader, device))
 
     # saving torch models
 

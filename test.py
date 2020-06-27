@@ -31,7 +31,7 @@ def test_result(model, test_loader, device):
         probs = prob(output)
         labels.extend(target.tolist())
         preds.extend(torch.argmax(probs, axis=1).tolist())
-    print(classification_report(labels, preds, target_names=cfg["data"]["label_dict"]))
+    return (classification_report(labels, preds, target_names=cfg["data"]["label_dict"]))
 
 
 def main():
