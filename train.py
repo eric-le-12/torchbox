@@ -48,16 +48,16 @@ def main():
         testing_set, batch_size=batch_size, shuffle=False,
     )
 
-    print("Dataset and Dataloaders created")
+    logging.info("Dataset and Dataloaders created")
     # create a model
     extractor_name = cfg["train"]["extractor"]
     model = cls.ClassificationModel(model_name=extractor_name).create_model()
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print("Using device: ", device)
+    logging.info("Using device: ", device)
     # convert to suitable device
     # global model
     model = model.to(device)
-    print("Model created...")
+    logging.info("Model created...")
     
     # create a metric for evaluating
     # global train_metrics
@@ -141,11 +141,11 @@ def main():
         logging.info("\n")
         # saving epoch with best validation accuracy
         if (best_val_acc < float (val_result["accuracy_score"])):
-            print("Validation accuracy= ",val_result["accuracy_score"], "===> Save best epoch")
+            logging.info("Validation accuracy= ",val_result["accuracy_score"], "===> Save best epoch")
             best_val_acc = val_result["accuracy_score"]
             torch.save(model.state_dict(), "saved/models/" +  time_str+'-'+cfg["train"]["save_as_name"])
         else:
-            print("Validation accuracy= ",val_result["accuracy_score"], "===> No saving")
+            logging.info("Validation accuracy= ",val_result["accuracy_score"], "===> No saving")
             continue
 
     # testing on test set
