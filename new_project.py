@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 from shutil import copytree, ignore_patterns
-
+import os
 
 # This script initializes new pytorch project with the template files.
 # Run `python3 new_project.py ../MyNewProject` then new project named
@@ -25,6 +25,10 @@ ignore = [
     "README.md",
     "__pycache__",
     "dataset",
+    "saved"
 ]
 copytree(current_dir, target_dir, ignore=ignore_patterns(*ignore))
+os.mkdir(sys.argv[1]+'\saved')
+os.mkdir(os.path.join(sys.argv[1],"saved\models"))
+os.mkdir(os.path.join(sys.argv[1],"saved\logs"))
 print("New project initialized at", target_dir.absolute().resolve())
