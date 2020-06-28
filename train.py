@@ -143,9 +143,9 @@ def main():
         # saving epoch with best validation accuracy
         if best_val_acc < float(val_result["accuracy_score"]):
             logging.info(
-                "Validation accuracy= ",
-                val_result["accuracy_score"],
-                "===> Save best epoch",
+                "Validation accuracy= "+
+                str(val_result["accuracy_score"])+
+                "===> Save best epoch"
             )
             best_val_acc = val_result["accuracy_score"]
             torch.save(
@@ -154,7 +154,7 @@ def main():
             )
         else:
             logging.info(
-                "Validation accuracy= ", val_result["accuracy_score"], "===> No saving"
+                "Validation accuracy= "+ str(val_result["accuracy_score"])+ "===> No saving"
             )
             continue
 
