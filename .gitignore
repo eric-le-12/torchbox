@@ -1,0 +1,10 @@
+venv
+saved/log
+saved/models
+temp_ml
+.pth
+.txt
+.jpg
+.pyc
+dataset
+.csv
