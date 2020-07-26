@@ -17,7 +17,7 @@ class Metrics:
             # check if metric require average method, if yes set to 'micro' or 'macro' or 'None'
             try:
                 self.metric_dict[metric].append(
-                    do_metric(labels, preds, average="macro")
+                    do_metric(labels, preds, average="samples")
                 )
             except:
                 self.metric_dict[metric].append(do_metric(labels, preds))

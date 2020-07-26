@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 import logging
+from torch.utils.tensorboard import SummaryWriter
 
 LOG_DIR = "saved/logs"
 
@@ -10,6 +11,11 @@ def make_file(sess_name, time_str):
     f = open(os.path.join(LOG_DIR, file_name), "w+")
     f.close()
     return os.path.join(LOG_DIR, file_name)
+def make_writer(sess_name, time_str):
+    file_name = sess_name + "_" + time_str
+    path = os.path.join(LOG_DIR, file_name)
+    writer = SummaryWriter(path)
+    return writer
 
 
 def log_initilize(log_path):

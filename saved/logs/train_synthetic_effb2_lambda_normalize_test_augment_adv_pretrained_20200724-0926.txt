@@ -1,0 +1,12 @@
+                  precision    recall  f1-score   support
+
+      No Finding       1.00      1.00      1.00         4
+       Pneumonia       1.00      0.67      0.80         3
+     Atelectasis       0.93      0.76      0.84        17
+    Pneumothorax       1.00      1.00      1.00         1
+Pleural Effusion       0.94      1.00      0.97        16
+
+       micro avg       0.95      0.88      0.91        41
+       macro avg       0.97      0.89      0.92        41
+    weighted avg       0.95      0.88      0.91        41
+     samples avg       0.91      0.88      0.89        41

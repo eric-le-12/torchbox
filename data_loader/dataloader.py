@@ -1,7 +1,10 @@
 from torchvision import transforms
 import torch
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 from PIL import Image
 import os
+import numpy as np
 from sklearn.model_selection import train_test_split
 
 # define a data class
@@ -23,10 +26,14 @@ class ClassificationDataset:
 
     def __getitem__(self, idx):
         img = Image.open(os.path.join(self.data_path, self.data.iloc[idx, 0]))
+        img = img.convert('RGB')
         label = self.data.iloc[idx, 1]
+        label = [int(x) for x in label.split(' ')]
+        label = torch.tensor(label, dtype=torch.int8)
 
         if self.transform is not None:
             img = self.transform(img)
+        
         return img, label
 
     def __len__(self):

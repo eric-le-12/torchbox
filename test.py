@@ -10,27 +10,22 @@ from model import classification as cls
 
 # use this file if you want to quickly test your model
 
-with open("cfgs/tenes.cfg") as f:
-    cfg = json.load(f)
 
 
-def test_result(model, test_loader, device):
+
+def test_result(model, test_loader, device,cfg):
     # testing the model by turning model "Eval" mode
     model.eval()
     preds = []
     labels = []
     for data, target in test_loader:
-        # move-tensors-to-GPU
         data = data.to(device)
-        # target=torch.Tensor(target)
-        target = target.to(device)
-        # forward-pass: compute-predicted-outputs-by-passing-inputs-to-the-model
-        output = model(data)
-        prob = nn.Softmax(dim=1)
-        # applying Softmax to results
-        probs = prob(output)
-        labels.extend(target.tolist())
-        preds.extend(torch.argmax(probs, axis=1).tolist())
+        target = target.to(device).float()
+        with torch.no_grad():
+            output = model(data)
+            output_sigmoid = torch.sigmoid(output)
+            preds = (output_sigmoid.cpu().numpy() >0.5).astype(float)
+        labels = target.cpu().numpy()      
     return (classification_report(labels, preds, target_names=cfg["data"]["label_dict"]))
 
 
@@ -40,6 +35,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+    with open("cfgs/chexphoto.cfg") as f:
+        cfg = json.load(f)
     test_data = cfg["data"]["test_csv_name"]
     data_path = cfg["data"]["data_path"]
     test_df = pd.read_csv(test_data, usecols=["file_name", "label"])
@@ -58,4 +55,4 @@ if __name__ == "__main__":
     model = model.to(device)
 
     # print classification report
-    test_result(model, test_loader, device)
+    test_result(model, test_loader, device,cfg)

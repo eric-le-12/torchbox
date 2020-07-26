@@ -20,9 +20,10 @@ from datetime import datetime
 
 def main():
     # read configure file
-    with open("cfgs/tenes.cfg") as f:
+    with open("cfgs/chexphoto.cfg") as f:
         cfg = json.load(f)
-
+    time_str = str(datetime.now().strftime("%Y%m%d-%H%M"))
+    tensorboard_writer  = logger.make_writer(cfg["session"]["sess_name"], time_str) 
     # using parsed configurations to create a dataset
     data = cfg["data"]["data_csv_name"]
     data_path = cfg["data"]["data_path"]
@@ -99,19 +100,21 @@ def main():
     )
 
     # before training, let's create a file for logging model result
-    time_str = str(datetime.now().strftime("%Y%m%d-%H%M"))
+    
     log_file = logger.make_file(cfg["session"]["sess_name"], time_str)
+    
+
     logger.log_initilize(log_file)
     print("Beginning training...")
     # export the result to log file
-    f = open("cfgs/tenes.cfg", "w+")
-    logging.info("-----")
-    logging.info("session name: {} \n".format(cfg["session"]["sess_name"]))
-    logging.info(model)
-    logging.info("\n")
-    logging.info("CONFIGS \n")
+    f = open("saved/logs/traning.txt", "a")
+    # logging.info("-----")
+    # logging.info("session name: {} \n".format(cfg["session"]["sess_name"]))
+    # logging.info(model)
+    # logging.info("\n")
+    # logging.info("CONFIGS \n")
     # logging the configs:
-    logging.info(f.read())
+    # logging.info(f.read())
     # training models
     num_epoch = int(cfg["train"]["num_epoch"])
     best_val_acc = 0
@@ -128,35 +131,62 @@ def main():
         )
 
         # lr scheduling
-        scheduler.step(val_loss)
-        logging.info(
-            "Epoch {} / {} \n Training loss: {} - Other training metrics: ".format(
+        
+        # logging.info(
+        #     "Epoch {} / {} \n Training loss: {} - Other training metrics: ".format(
+        #         i + 1, num_epoch, loss
+        #     )
+        # )
+        print( "Epoch {} / {} \n Training acc: {} - Other training metrics: ".format(
+                i + 1, num_epoch, train_result["accuracy_score"]
+            ))
+        print("Epoch {} / {} \n Training loss: {} - Other training metrics: ".format(
                 i + 1, num_epoch, loss
-            )
-        )
-        logging.info(train_result)
-        logging.info(
-            " \n Validation loss : {} - Other validation metrics:".format(val_loss)
-        )
-        logging.info(val_result)
-        logging.info("\n")
+            ))
+        f.write( "Epoch {} / {} \n Training loss: {} - Other training metrics: ".format(
+                i + 1, num_epoch, loss
+            ))
+        f.write( "Epoch {} / {} \n Training acc: {} - Other training metrics: ".format(
+                i + 1, num_epoch, train_result["accuracy_score"]
+            ))
+        tensorboard_writer.add_scalar("training accuracy",train_result["accuracy_score"],i + 1)
+        tensorboard_writer.add_scalar("training f1_score",train_result["f1_score"],i + 1)
+        tensorboard_writer.add_scalar("training metrics",loss,i + 1)
+        # logging.info(train_result)
+        # logging.info(
+        #     " \n Validation loss : {} - Other validation metrics:".format(val_loss)
+        # )
+        print("Epoch {} / {} \n valid acc: {} - Other training metrics: ".format(
+                i + 1, num_epoch, val_result["accuracy_score"]
+            ))
+        f.write(  " \n Validation loss : {} - Other validation metrics:".format(val_loss))
+        tensorboard_writer.add_scalar("valid accuracy",val_result["accuracy_score"],i + 1)
+        tensorboard_writer.add_scalar("valid f1_score",val_result["f1_score"],i + 1)
+        tensorboard_writer.add_scalar("valid metrics",val_loss,i + 1)
+        # logging.info(val_result)
+        # logging.info("\n")
         # saving epoch with best validation accuracy
         if best_val_acc < float(val_result["accuracy_score"]):
-            logging.info(
-                "Validation accuracy= "+
+            # logging.info(
+            #     "Validation accuracy= "+
+            #     str(val_result["accuracy_score"])+
+            #     "===> Save best epoch"
+            # )
+            f.write(  "Validation accuracy= "+
                 str(val_result["accuracy_score"])+
-                "===> Save best epoch"
-            )
+                "===> Save best epoch")
             best_val_acc = val_result["accuracy_score"]
             torch.save(
                 model.state_dict(),
                 "saved/models/" + time_str + "-" + cfg["train"]["save_as_name"],
             )
-        else:
-            logging.info(
-                "Validation accuracy= "+ str(val_result["accuracy_score"])+ "===> No saving"
-            )
-            continue
+        scheduler.step(val_loss)
+        # else:
+        #     # logging.info(
+        #     #     "Validation accuracy= "+ str(val_result["accuracy_score"])+ "===> No saving"
+        #     # )
+        #     continue
+
 
     # testing on test set
     test_data = cfg["data"]["test_csv_name"]
@@ -170,7 +200,7 @@ def main():
 
     # make dataloader
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    test_loader = torch.utils.data.DataLoader(testing_set, batch_size=1, shuffle=False)
+    test_loader = torch.utils.data.DataLoader(testing_set, batch_size=32, shuffle=False)
     print("Inference on the testing set")
 
     # load the test model and making inference
@@ -180,7 +210,7 @@ def main():
     )
     test_model.load_state_dict(torch.load(model_path))
     test_model = test_model.to(device)
-    logging.info(tester.test_result(test_model, test_loader, device))
+    logging.info(tester.test_result(test_model, test_loader, device,cfg))
 
     # saving torch models
 
