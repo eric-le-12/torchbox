@@ -16,6 +16,9 @@ def train_one_epoch(
     # training-the-model
     train_loss = 0
     valid_loss = 0
+    # pos_weight = torch.FloatTensor([2,3,2,3,1]).to(device)
+    # pos_weight.to(device)
+    # criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     model.train()
     for data, target in train_loader:
         # move-tensors-to-GPU
@@ -26,6 +29,7 @@ def train_one_epoch(
         optimizer.zero_grad()
         # forward-pass: compute-predicted-outputs-by-passing-inputs-to-the-model
         output = model(data)
+        
         # get the prediction label and target label
         # output = model(data)
         # preds = torch.argmax(output, axis=1).cpu().detach().numpy()
@@ -33,9 +37,9 @@ def train_one_epoch(
         with torch.no_grad():            
             preds = (output_sigmoid.cpu().numpy()>0.5).astype(float)
         labels = target.cpu().numpy()
-
         # calculate-the-batch-loss
-        loss = criterion(output, target)
+      
+        loss = criterion(output,target)
         # backward-pass: compute-gradient-of-the-loss-wrt-model-parameters
         loss.backward()
         # perform-a-ingle-optimization-step (parameter-update)

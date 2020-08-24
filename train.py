@@ -13,47 +13,92 @@ import test as tester
 import logging
 from sklearn.model_selection import train_test_split
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import CosineAnnealingLR
 import ssl
 import os
 from datetime import datetime
+import argparse
+from torchsampler import ImbalancedDatasetSampler
 
 
 def main():
+    parser = argparse.ArgumentParser(description='NA')
+    parser.add_argument('-c', '--configure', default='cfgs/chexphoto.cfg', help='JSON file')
+    parser.add_argument('-cp', '--checkpoint', default=None, help = 'checkpoint path')
+    args = parser.parse_args()
+    checkpoint = args.checkpoint
     # read configure file
-    with open("cfgs/chexphoto.cfg") as f:
+    with open(args.configure) as f:
         cfg = json.load(f)
     time_str = str(datetime.now().strftime("%Y%m%d-%H%M"))
     tensorboard_writer  = logger.make_writer(cfg["session"]["sess_name"], time_str) 
     # using parsed configurations to create a dataset
     data = cfg["data"]["data_csv_name"]
+    valid = cfg['data']['test_csv_name']
     data_path = cfg["data"]["data_path"]
     batch_size = int(cfg["data"]["batch_size"])
     validation_split = float(cfg["data"]["validation_ratio"])
     # create dataset
     training_set = pd.read_csv(data, usecols=["file_name", "label"])
-    train, test, _, _ = dataloader.data_split(training_set, validation_split)
+    valid_set = pd.read_csv(valid, usecols=["file_name", "label"])
+    # train, test, _, _ = dataloader.data_split(training_set, validation_split)
 
     training_set = dataloader.ClassificationDataset(
-        train, data_path, transform.train_transform
+        training_set, data_path, transform.train_transform
     )
 
     testing_set = dataloader.ClassificationDataset(
-        test, data_path, transform.val_transform
+        valid_set, data_path, transform.val_transform
     )
     # create dataloaders
     # global train_loader
     # global val_loader
+    #SAmpler to prevent inbalance data label
+    # train_loader = torch.utils.data.DataLoader(training_set,sampler=ImbalancedDatasetSampler(training_set, callback_get_label=lambda x, i: tuple(x[i][1].tolist())),batch_size=batch_size,)
+
+    #End sampler
     train_loader = torch.utils.data.DataLoader(
         training_set, batch_size=batch_size, shuffle=True,
     )
     val_loader = torch.utils.data.DataLoader(
         testing_set, batch_size=batch_size, shuffle=False,
     )
+    # val_loader = torch.utils.data.DataLoader(testing_set,sampler=ImbalancedDatasetSampler(testing_set, callback_get_label=lambda x, i: tuple(x[i][1].tolist())),batch_size=batch_size,)
 
     logging.info("Dataset and Dataloaders created")
     # create a model
     extractor_name = cfg["train"]["extractor"]
     model = cls.ClassificationModel(model_name=extractor_name).create_model()
+    #load checkpoint to continue training
+    if checkpoint is not None:
+        print('...Load checkpoint from {}'.format(checkpoint))
+        checkpoint = torch.load(checkpoint)
+        model.load_state_dict(checkpoint)
+        print('...Checkpoint loaded')
+        
+        classifier = nn.Sequential(
+            nn.Linear(1408, 512, bias=True),
+            nn.ReLU(inplace=True),
+            nn.Linear(512, 6, bias=True)
+        )
+        
+        # create classfier
+        # replace the last linear layer with your custom classifier
+        # model._avg_pooling = SPPLayer([1,2,4])
+        model._fc = classifier
+        # model.last_linear = self.cls
+        # select with layers to unfreeze
+        params  = list(model.parameters())
+        len_param = len(params)
+        # for index,param in enumerate(model.parameters()):
+        #     if index == (len_param -1):
+        #         param.requires_grad = True
+        #     else:
+        #         param.requires_grad = False
+        # for param in model.parameters():
+        #     print(param.requires_grad)
+
+
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     logging.info("Using device: {} ".format(device))
     # convert to suitable device
@@ -80,6 +125,7 @@ def main():
         criterion = getattr(
             nn, loss_function, "The loss {} is not available".format(loss_function)
         )
+       
     except:
         # use custom loss
         criterion = getattr(
@@ -87,17 +133,24 @@ def main():
             loss_function,
             "The loss {} is not available".format(loss_function),
         )
-    criterion = criterion()
+    criterion = criterion()  
     optimizer = getattr(
         torch.optim, optimizers, "The optimizer {} is not available".format(optimizers)
     )
+    max_lr = 3e-3  # Maximum LR
+    min_lr = 1e-5  # Minimum LR
+    t_max = 10     # How many epochs to go from max_lr to min_lr
+    # optimizer = torch.optim.Adam(
+    # params=model.parameters(), lr=max_lr, amsgrad=False)
     optimizer = optimizer(model.parameters(), lr=learning_rate)
     save_method = cfg["train"]["lr_scheduler_factor"]
     patiences = cfg["train"]["patience"]
     lr_factor = cfg["train"]["reduce_lr_factor"]
-    scheduler = ReduceLROnPlateau(
-        optimizer, save_method, patience=patiences, factor=lr_factor
-    )
+    # scheduler = ReduceLROnPlateau(
+    #     optimizer, save_method, patience=patiences, factor=lr_factor
+    # )
+    scheduler = CosineAnnealingLR(
+    optimizer, T_max=t_max, eta_min=min_lr)
 
     # before training, let's create a file for logging model result
     
@@ -107,12 +160,12 @@ def main():
     logger.log_initilize(log_file)
     print("Beginning training...")
     # export the result to log file
-    f = open("saved/logs/traning.txt", "a")
-    # logging.info("-----")
-    # logging.info("session name: {} \n".format(cfg["session"]["sess_name"]))
-    # logging.info(model)
-    # logging.info("\n")
-    # logging.info("CONFIGS \n")
+    f = open("saved/logs/traning_{}.txt".format(cfg["session"]["sess_name"]), "a")
+    logging.info("-----")
+    logging.info("session name: {} \n".format(cfg["session"]["sess_name"]))
+    logging.info(model)
+    logging.info("\n")
+    logging.info("CONFIGS \n")
     # logging the configs:
     # logging.info(f.read())
     # training models
@@ -132,11 +185,11 @@ def main():
 
         # lr scheduling
         
-        # logging.info(
-        #     "Epoch {} / {} \n Training loss: {} - Other training metrics: ".format(
-        #         i + 1, num_epoch, loss
-        #     )
-        # )
+        logging.info(
+            "Epoch {} / {} \n Training loss: {} - Other training metrics: ".format(
+                i + 1, num_epoch, loss
+            )
+        )
         print( "Epoch {} / {} \n Training acc: {} - Other training metrics: ".format(
                 i + 1, num_epoch, train_result["accuracy_score"]
             ))
@@ -152,10 +205,10 @@ def main():
         tensorboard_writer.add_scalar("training accuracy",train_result["accuracy_score"],i + 1)
         tensorboard_writer.add_scalar("training f1_score",train_result["f1_score"],i + 1)
         tensorboard_writer.add_scalar("training metrics",loss,i + 1)
-        # logging.info(train_result)
-        # logging.info(
-        #     " \n Validation loss : {} - Other validation metrics:".format(val_loss)
-        # )
+        logging.info(train_result)
+        logging.info(
+            " \n Validation loss : {} - Other validation metrics:".format(val_loss)
+        )
         print("Epoch {} / {} \n valid acc: {} - Other training metrics: ".format(
                 i + 1, num_epoch, val_result["accuracy_score"]
             ))
@@ -163,15 +216,15 @@ def main():
         tensorboard_writer.add_scalar("valid accuracy",val_result["accuracy_score"],i + 1)
         tensorboard_writer.add_scalar("valid f1_score",val_result["f1_score"],i + 1)
         tensorboard_writer.add_scalar("valid metrics",val_loss,i + 1)
-        # logging.info(val_result)
-        # logging.info("\n")
+        logging.info(val_result)
+        logging.info("\n")
         # saving epoch with best validation accuracy
         if best_val_acc < float(val_result["accuracy_score"]):
-            # logging.info(
-            #     "Validation accuracy= "+
-            #     str(val_result["accuracy_score"])+
-            #     "===> Save best epoch"
-            # )
+            logging.info(
+                "Validation accuracy= "+
+                str(val_result["accuracy_score"])+
+                "===> Save best epoch"
+            )
             f.write(  "Validation accuracy= "+
                 str(val_result["accuracy_score"])+
                 "===> Save best epoch")
