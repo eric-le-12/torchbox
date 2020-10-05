@@ -77,3 +77,119 @@ class ClassificationModel:
         #     print(param.requires_grad)
         # print(model)
         return model
+
+class Lecnet():
+    # here present the code coding for the Lecnet model in the paper
+    def __init__(self,class_num=3,num_of_blocks=9,training=True,dense_layers=[256,256]):
+        self.num_blocks = num_of_blocks
+        self.class_num = class_num
+        self.training = training
+        self.model = nn.Sequential()
+
+        for block_num in self.num_blocks:
+            # add cnn blocks
+            if (block_num==0):
+                in_channels = 1
+            else:
+                in_channels = 64
+            out_channels = 64
+            self.model.add_module('block_{}_cnn'.format(block_num),self.depthblock(block_index,in_channels,out_channels))
+
+        self.model.add_module('avg_pool', nn.AdaptiveAvgPool1d(8))
+
+        for index,value in dense_layers:
+            if (index==0):
+                in_dense = 8
+            else:
+                in_dense = dense_layer[index-1]
+            # add dense layers
+            self.model.add_module('dense_{}'.format(index), 
+                                    nn.Linear(in_features = in_dense,
+                                            out_features = 256, 
+                                            bias=True))
+            # add activation function
+            if (index==(dense_layer-1)):
+                # add activation after final dense function
+                self.dense.add_module('dense_activation_{}'.format(len(feature_size)-2),
+                                    nn.Tanh())
+
+        self.meta_net = nn.Sequential(nn.Linear(1, 64,bias=True),
+                                #   nn.BatchNorm1d(64),
+                                  nn.Tanh(),
+                                  nn.Dropout(p=0.2),
+                                  nn.Linear(64, 128,bias=True),
+                                
+                                  nn.Tanh(),
+                                  nn.Dropout(p=0.2))
+        
+
+
+        self.out_1 =  nn.Linear(256+128, 128,bias=True)
+        self.out_2 = nn.Linear(128,2,bias=True)
+
+    def depthblock(self,block_index,in_channels,out_channels):
+        block = nn.Sequential()
+        # block.add_module('padding_{}'.format(block_index),\
+        #             nn.ConstantPad1d((8*block_index,8*block_index),0))
+        block.add_module('conv_{}_1,1'.format(block_index),\
+                    nn.Conv1d(in_channels = in_channels, \
+                              out_channels = in_channels, \
+                              kernel_size = 3, \
+                              stride= 2, \
+                              padding= 1, \
+                              dilation=1, \
+                              groups=in_channels, \
+                              bias=True, \
+                              padding_mode='zeros'))
+        block.add_module('BatchNorm_{}_1,1'.format(block_index), \
+                        nn.BatchNorm1d(in_channels))
+        block.add_module('relu_{}_1'.format(block_index),\
+                        nn.ReLU())
+        # if self.train_:
+        #   block.add_module('dropout-{}-1'.format(block_index),\
+        #                   nn.Dropout(p = 0.05))
+        block.add_module('conv_{}_1,2'.format(block_index),\
+                    nn.Conv1d(in_channels = in_channels, \
+                              out_channels = out_channels, \
+                              kernel_size = 1, \
+                              stride= 2, \
+                              padding= 1, \
+                              dilation=1, \
+                              groups=1, \
+                              bias=True, \
+                              padding_mode='zeros'))
+        block.add_module('BatchNorm_{}_1,2'.format(block_index),\
+                        nn.BatchNorm1d(out_channels))
+        block.add_module('relu_{}_1'.format(block_index),\
+                        nn.ReLU())
+        if pooling_kernel_size>1:
+          block.add_module('maxpool_{}'.format(block_index),\
+                          nn.MaxPool1d(kernel_size = 2, \
+                                    stride=None, \
+                                    padding= 1, \
+                                    dilation=1, \
+                                    return_indices=False, \
+                                    ceil_mode=False))
+        if self.train_:
+          block.add_module('dropout_{}_2'.format(block_index),\
+                          nn.Dropout(p = 0.2))
+
+        return block
+    
+    def forward(self, data, meta):
+        # batch_size = data.shape[0]
+        batch_size = 1
+        # print(meta.view(batch_size,1).shape)
+        features = self.model(data.view(batch_size, self.input_size[0],-1))
+        features_meta = self.meta_net(meta.view(batch_size,1))
+        # print(features.shape)
+        # print(features_meta.shape)
+        features_cat = torch.cat((features,features_meta),dim=1)
+        output = self.out_1(features_cat)
+        # output = self.out_1(features)
+        output = self.out_2(output)
+        # output = features
+
+        return output
+
+
