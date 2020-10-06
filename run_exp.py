@@ -1,17 +1,18 @@
-    """
-    Note that one can use either this file or its deprecated version train.py
-    New version supports : 
-    * Tracking experiment data and checkpoint by using neptune.ai
-    * Support K Fold cross validation
-    * Support different class of loading data: time series vs images data
-    * Support custom collocation and running script for time series data
-    * Support running from 3 different subsets instead of 2 in previous version
+"""
+Note that one can use either this file or its deprecated version train.py
+New version supports : 
+* Tracking experiment data and checkpoint by using neptune.ai
+* Support K Fold cross validation
+* Support different class of loading data: time series vs images data
+* Support custom collocation and running script for time series data
+* Support running from 3 different subsets instead of 2 in previous version
 
-    """
-
+"""
+import importlib
 import json
+import time
 from data_loader import dataloader
-from model import classification as cls
+from dataloader import data_split
 from utils import metrics as metrics
 from utils import logger
 from utils import custom_loss
@@ -32,73 +33,86 @@ import argparse
 from torchsampler import ImbalancedDatasetSampler
 
 
-def main():
-    parser = argparse.ArgumentParser(description='NA')
-    parser.add_argument('-c', '--configure', default='cfgs/chexphoto.cfg', help='JSON file')
-    parser.add_argument('-cp', '--checkpoint', default=None, help = 'checkpoint path')
-    args = parser.parse_args()
-    checkpoint = args.checkpoint
-    # read configure file
-    with open(args.configure) as f:
-        cfg = json.load(f)
+def main(comment="No comment", checkpoint=None,collocation,model,dataset,validation_flag,current_fold):
+    # parser = argparse.ArgumentParser(description='NA')
+    # parser.add_argument('-c', '--configure', default='cfgs/chexphoto.cfg', help='JSON file')
+    # parser.add_argument('-cp', '--checkpoint', default=None, help = 'checkpoint path')
+    # args = parser.parse_args()
+    # checkpoint = args.checkpoint
+    # # read configure file
+    # with open(args.configure) as f:
+    #     cfg = json.load(f)
     time_str = str(datetime.now().strftime("%Y%m%d-%H%M"))
     # using parsed configurations to create a dataset
+    
+    # read training set
     data = cfg["data"]["data_csv_name"]
-    valid = cfg['data']['test_csv_name']
+    training_set = pd.read_csv(data, usecols=["file_name", "label"])
+
+    # check if validation flag is on
+    if (validation_flag==1):
+        # using custom validation set
+        valid = cfg["data"]["validation_csv_name"]
+        valid_set = pd.read_csv(valid, usecols=["file_name", "label"])
+    else:
+        # auto divide validation set
+        validation_split = float(cfg["data"]["validation_ratio"])
+        training_set,valid_set = data_split(training_set,validation_split)
+
     data_path = cfg["data"]["data_path"]
     batch_size = int(cfg["data"]["batch_size"])
-    validation_split = float(cfg["data"]["validation_ratio"])
+
+    
     # create dataset
-    training_set = pd.read_csv(data, usecols=["file_name", "label"])
-    valid_set = pd.read_csv(valid, usecols=["file_name", "label"])
     # train, test, _, _ = dataloader.data_split(training_set, validation_split)
 
-    training_set = dataloader.ClassificationDataset(
+    training_set = dataset(
         training_set, data_path, transform.train_transform
     )
 
-    testing_set = dataloader.ClassificationDataset(
+    testing_set = dataset(
         valid_set, data_path, transform.val_transform
     )
     # create dataloaders
     # global train_loader
     # global val_loader
-    #SAmpler to prevent inbalance data label
+    # SAmpler to prevent inbalance data label
     # train_loader = torch.utils.data.DataLoader(training_set,sampler=ImbalancedDatasetSampler(training_set, callback_get_label=lambda x, i: tuple(x[i][1].tolist())),batch_size=batch_size,)
 
-    #End sampler
+    # End sampler
     train_loader = torch.utils.data.DataLoader(
-        training_set, batch_size=batch_size, shuffle=True,
+        training_set, batch_size=batch_size, shuffle=True,collate_fn=collocation
     )
     val_loader = torch.utils.data.DataLoader(
-        testing_set, batch_size=batch_size, shuffle=False,
+        testing_set, batch_size=batch_size, shuffle=False,collate_fn=collocation
     )
     # val_loader = torch.utils.data.DataLoader(testing_set,sampler=ImbalancedDatasetSampler(testing_set, callback_get_label=lambda x, i: tuple(x[i][1].tolist())),batch_size=batch_size,)
 
     logging.info("Dataset and Dataloaders created")
     # create a model
-    extractor_name = cfg["train"]["extractor"]
-    model = cls.ClassificationModel(model_name=extractor_name).create_model()
-    #load checkpoint to continue training
+    # extractor_name = cfg["train"]["extractor"]
+    # model = cls(model_name=extractor_name).create_model()
+    model = cls(class_num=3,num_of_blocks=9,training=True,dense_layers=[256,256])
+    # load checkpoint to continue training
     if checkpoint is not None:
-        print('...Load checkpoint from {}'.format(checkpoint))
+        print("...Load checkpoint from {}".format(checkpoint))
         checkpoint = torch.load(checkpoint)
         model.load_state_dict(checkpoint)
-        print('...Checkpoint loaded')
-        
+        print("...Checkpoint loaded")
+
         classifier = nn.Sequential(
             nn.Linear(1408, 512, bias=True),
             nn.ReLU(inplace=True),
-            nn.Linear(512, 6, bias=True)
+            nn.Linear(512, 6, bias=True),
         )
-        
+
         # create classfier
         # replace the last linear layer with your custom classifier
         # model._avg_pooling = SPPLayer([1,2,4])
         model._fc = classifier
         # model.last_linear = self.cls
         # select with layers to unfreeze
-        params  = list(model.parameters())
+        params = list(model.parameters())
         len_param = len(params)
         # for index,param in enumerate(model.parameters()):
         #     if index == (len_param -1):
@@ -107,7 +121,6 @@ def main():
         #         param.requires_grad = False
         # for param in model.parameters():
         #     print(param.requires_grad)
-
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     logging.info("Using device: {} ".format(device))
@@ -135,7 +148,7 @@ def main():
         criterion = getattr(
             nn, loss_function, "The loss {} is not available".format(loss_function)
         )
-       
+
     except:
         # use custom loss
         criterion = getattr(
@@ -143,13 +156,13 @@ def main():
             loss_function,
             "The loss {} is not available".format(loss_function),
         )
-    criterion = criterion()  
+    criterion = criterion()
     optimizer = getattr(
         torch.optim, optimizers, "The optimizer {} is not available".format(optimizers)
     )
     max_lr = 3e-3  # Maximum LR
     min_lr = 1e-5  # Minimum LR
-    t_max = 10     # How many epochs to go from max_lr to min_lr
+    t_max = 10  # How many epochs to go from max_lr to min_lr
     # optimizer = torch.optim.Adam(
     # params=model.parameters(), lr=max_lr, amsgrad=False)
     optimizer = optimizer(model.parameters(), lr=learning_rate)
@@ -159,13 +172,11 @@ def main():
     # scheduler = ReduceLROnPlateau(
     #     optimizer, save_method, patience=patiences, factor=lr_factor
     # )
-    scheduler = CosineAnnealingLR(
-    optimizer, T_max=t_max, eta_min=min_lr)
+    scheduler = CosineAnnealingLR(optimizer, T_max=t_max, eta_min=min_lr)
 
     # before training, let's create a file for logging model result
-    
+
     log_file = logger.make_file(cfg["session"]["sess_name"], time_str)
-    
 
     logger.log_initilize(log_file)
     print("Beginning training...")
@@ -173,6 +184,7 @@ def main():
     f = open("saved/logs/traning_{}.txt".format(cfg["session"]["sess_name"]), "a")
     logging.info("-----")
     logging.info("session name: {} \n".format(cfg["session"]["sess_name"]))
+    logging.info("session description: {} \n".format(comment))
     logging.info(model)
     logging.info("\n")
     logging.info("CONFIGS \n")
@@ -194,24 +206,32 @@ def main():
         )
 
         # lr scheduling
-        
+
         logging.info(
             "Epoch {} / {} \n Training loss: {} - Other training metrics: ".format(
                 i + 1, num_epoch, loss
             )
         )
-        print( "Epoch {} / {} \n Training acc: {} - Other training metrics: ".format(
+        print(
+            "Epoch {} / {} \n Training acc: {} - Other training metrics: ".format(
                 i + 1, num_epoch, train_result["accuracy_score"]
-            ))
-        print("Epoch {} / {} \n Training loss: {} - Other training metrics: ".format(
+            )
+        )
+        print(
+            "Epoch {} / {} \n Training loss: {} - Other training metrics: ".format(
                 i + 1, num_epoch, loss
-            ))
-        f.write( "Epoch {} / {} \n Training loss: {} - Other training metrics: ".format(
+            )
+        )
+        f.write(
+            "Epoch {} / {} \n Training loss: {} - Other training metrics: ".format(
                 i + 1, num_epoch, loss
-            ))
-        f.write( "Epoch {} / {} \n Training acc: {} - Other training metrics: ".format(
+            )
+        )
+        f.write(
+            "Epoch {} / {} \n Training acc: {} - Other training metrics: ".format(
                 i + 1, num_epoch, train_result["accuracy_score"]
-            ))
+            )
+        )
         # tensorboard_writer.add_scalar("training accuracy",train_result["accuracy_score"],i + 1)
         # tensorboard_writer.add_scalar("training f1_score",train_result["f1_score"],i + 1)
         # tensorboard_writer.add_scalar("training metrics",loss,i + 1)
@@ -219,10 +239,12 @@ def main():
         logging.info(
             " \n Validation loss : {} - Other validation metrics:".format(val_loss)
         )
-        print("Epoch {} / {} \n valid acc: {} - Other training metrics: ".format(
+        print(
+            "Epoch {} / {} \n valid acc: {} - Other training metrics: ".format(
                 i + 1, num_epoch, val_result["accuracy_score"]
-            ))
-        f.write(  " \n Validation loss : {} - Other validation metrics:".format(val_loss))
+            )
+        )
+        f.write(" \n Validation loss : {} - Other validation metrics:".format(val_loss))
         # tensorboard_writer.add_scalar("valid accuracy",val_result["accuracy_score"],i + 1)
         # tensorboard_writer.add_scalar("valid f1_score",val_result["f1_score"],i + 1)
         # tensorboard_writer.add_scalar("valid metrics",val_loss,i + 1)
@@ -231,13 +253,15 @@ def main():
         # saving epoch with best validation accuracy
         if best_val_acc < float(val_result["accuracy_score"]):
             logging.info(
-                "Validation accuracy= "+
-                str(val_result["accuracy_score"])+
-                "===> Save best epoch"
+                "Validation accuracy= "
+                + str(val_result["accuracy_score"])
+                + "===> Save best epoch"
             )
-            f.write(  "Validation accuracy= "+
-                str(val_result["accuracy_score"])+
-                "===> Save best epoch")
+            f.write(
+                "Validation accuracy= "
+                + str(val_result["accuracy_score"])
+                + "===> Save best epoch"
+            )
             best_val_acc = val_result["accuracy_score"]
             torch.save(
                 model.state_dict(),
@@ -249,7 +273,6 @@ def main():
         #     #     "Validation accuracy= "+ str(val_result["accuracy_score"])+ "===> No saving"
         #     # )
         #     continue
-
 
     # testing on test set
     test_data = cfg["data"]["test_csv_name"]
@@ -273,10 +296,71 @@ def main():
     )
     test_model.load_state_dict(torch.load(model_path))
     test_model = test_model.to(device)
-    logging.info(tester.test_result(test_model, test_loader, device,cfg))
+    logging.info(tester.test_result(test_model, test_loader, device, cfg))
 
     # saving torch models
-
+    print("---End of testing phase----")
 
 if __name__ == "__main__":
-    main()
+
+    parser = argparse.ArgumentParser(description="NA")
+    parser.add_argument(
+        "-c", "--configure", default="cfgs/chexphoto.cfg", help="JSON file"
+    )
+    parser.add_argument("-cp", "--checkpoint", default=None, help="checkpoint path")
+    args = parser.parse_args()
+    checkpoint = args.checkpoint
+    # read configure file
+    with open(args.configure) as f:
+        cfg = json.load(f)
+
+    # comment for this experiment: leave here
+    comment = "First demo comparison"
+    # modify this part if you are using kfold
+    # csv files of kfold should be in format : *_fold0.csv , _fold1.csv...
+    fold_list = ["fold0", "fold1", "fold2", "fold3", "fold4"]
+
+    # automate the validation split or not
+    if cfg["data"]["validation_ratio"] > 0 and cfg["data"]["validation_path"] == "":
+        print("No validation set available, auto split the training into validation")
+        validation_flag = cfg["data"]["validation_ratio"]
+    else:
+        validation_flag = 1
+    # choose way of loading data (collocation)
+    module_name = cfg["data"]["collocation"]
+    try:
+        collocation = importlib.import_module(
+            module_name, package="data_loader.collocation"
+        )
+    except:
+        print("Cannot import data collocation module".format(module_name))
+    # choose dataloader type
+    module_name = cfg["data"]["data.class"]
+    try:
+        dataset = importlib.import_module(
+            module_name, package="data_loader.dataloader"
+        )
+    except:
+        print("Cannot import data loader module".format(module_name))
+    # choose model classification class
+    module_name = cfg["data"]["model.class"]
+    try:
+        cls = importlib.import_module(module_name, package="model.classification")
+    except:
+        print("Cannot import data loader module".format(module_name))
+
+    # begin the experiment
+
+    for fold in fold_list:
+        # running at fold n
+        print("Currently running on {}".format(fold))
+        time.sleep(3)
+        main(
+            comment=comment,
+            checkpoint=checkpoint,
+            collocation=collocation,
+            model=cls,
+            dataset=dataset,
+            validation_flag=validation_flag,
+            current_fold=fold
+        )
