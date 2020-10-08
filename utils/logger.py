@@ -1,7 +1,6 @@
 import os
 from datetime import datetime
 import logging
-from torch.utils.tensorboard import SummaryWriter
 
 LOG_DIR = "saved/logs"
 
@@ -11,6 +10,7 @@ def make_file(sess_name, time_str):
     f = open(os.path.join(LOG_DIR, file_name), "w+")
     f.close()
     return os.path.join(LOG_DIR, file_name)
+
 def make_writer(sess_name, time_str):
     file_name = sess_name + "_" + time_str
     path = os.path.join(LOG_DIR, file_name)
@@ -23,12 +23,12 @@ def log_initilize(log_path):
     logger.setLevel(logging.DEBUG)
 
     # create console handler and set level to info
-    handler = logging.StreamHandler()
-    handler.setLevel(logging.INFO)
-    formatter = logging.Formatter("%(message)s")
-    handler.setFormatter(formatter)
-    handler.terminator = ""
-    logger.addHandler(handler)
+    # handler = logging.StreamHandler()
+    # handler.setLevel(logging.INFO)
+    # formatter = logging.Formatter("%(message)s")
+    # handler.setFormatter(formatter)
+    # handler.terminator = ""
+    # logger.addHandler(handler)
 
     # create error file handler and set level to error
     handler = logging.FileHandler(log_path, "w", encoding=None, delay="true")

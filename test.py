@@ -86,6 +86,41 @@ def test_result(model, test_loader, device,cfg):
     to_write.close()
     return (classification_report(list_label, list_pres, target_names=cfg["data"]["label_dict"]))
 
+def adaptive_test_result(model, test_loader, device,cfg):
+    # testing the model by turning model "Eval" mode
+    model.eval()
+    list_pres = []
+    list_label = []
+    list_sigmoid = []
+    # preds = []
+    labels = []
+    to_write = open('log_test.txt',"w+")
+    for data, abnormal, target in test_loader:
+        # data = data.to(device)
+        target = target.to(device).long()
+        abnormal = abnormal.to(device)
+        bs = len(data)
+
+        with torch.no_grad():
+            Y_pred = torch.empty((0,2)).to(device)
+            for i in range(0,bs):
+                input_ecg = data[i].unsqueeze(0).to(device)
+                # print(input_ecg.shape)
+                # print("shape:",abnormal.shape)
+                # print(abnormal[[i]].unsqueeze(0).shape)
+                preds = model(input_ecg,abnormal[[i]].unsqueeze(0).unsqueeze(0))
+                Y_pred = torch.cat((Y_pred,preds))
+            preds = torch.softmax(Y_pred,dim=-1).cpu().detach().numpy()
+            preds = np.argmax(preds,axis=-1)
+            # preds = (output_sigmoid.cpu().numpy() >0.05).astype(float)
+ 
+            to_write.write('{},{}\n'.format(preds.tolist(),target.tolist()))
+        list_label.extend(target.tolist())  
+        list_pres.extend(preds.tolist())  
+    to_write.close()
+    print(len(list_label))
+    print(len(list_pres))
+    return (classification_report(list_label, list_pres, target_names=cfg["data"]["label_dict"]))
 
 def main():
     print("Testing process beginning here....")

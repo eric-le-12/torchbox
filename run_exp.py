@@ -11,8 +11,11 @@ New version supports :
 import importlib
 import json
 import time
-from data_loader import dataloader
-from dataloader import data_split
+import utils
+from model import classification as model
+import data_loader
+# from data_loader import dataloader
+from data_loader.dataloader import data_split
 from utils import metrics as metrics
 from utils import logger
 from utils import custom_loss
@@ -30,10 +33,10 @@ import ssl
 import os
 from datetime import datetime
 import argparse
-from torchsampler import ImbalancedDatasetSampler
+# from torchsampler import ImbalancedDatasetSampler
 
 
-def main(comment="No comment", checkpoint=None,collocation,model,dataset,validation_flag,current_fold):
+def main(collocation,model,dataset,validation_flag,current_fold,comment="No comment", checkpoint=None):
     # parser = argparse.ArgumentParser(description='NA')
     # parser.add_argument('-c', '--configure', default='cfgs/chexphoto.cfg', help='JSON file')
     # parser.add_argument('-cp', '--checkpoint', default=None, help = 'checkpoint path')
@@ -44,16 +47,16 @@ def main(comment="No comment", checkpoint=None,collocation,model,dataset,validat
     #     cfg = json.load(f)
     time_str = str(datetime.now().strftime("%Y%m%d-%H%M"))
     # using parsed configurations to create a dataset
-    
     # read training set
     data = cfg["data"]["data_csv_name"]
-    training_set = pd.read_csv(data, usecols=["file_name", "label"])
-
+    training_set = pd.read_csv(data,delimiter='*',header=None)
+    
     # check if validation flag is on
     if (validation_flag==1):
         # using custom validation set
+        print("Creating validation set from file")
         valid = cfg["data"]["validation_csv_name"]
-        valid_set = pd.read_csv(valid, usecols=["file_name", "label"])
+        valid_set = pd.read_csv(valid,delimiter='*',header=None)
     else:
         # auto divide validation set
         validation_split = float(cfg["data"]["validation_ratio"])
@@ -67,11 +70,11 @@ def main(comment="No comment", checkpoint=None,collocation,model,dataset,validat
     # train, test, _, _ = dataloader.data_split(training_set, validation_split)
 
     training_set = dataset(
-        training_set, data_path, transform.train_transform
+        training_set, data_path, True
     )
 
     testing_set = dataset(
-        valid_set, data_path, transform.val_transform
+        valid_set, data_path, False
     )
     # create dataloaders
     # global train_loader
@@ -92,7 +95,7 @@ def main(comment="No comment", checkpoint=None,collocation,model,dataset,validat
     # create a model
     # extractor_name = cfg["train"]["extractor"]
     # model = cls(model_name=extractor_name).create_model()
-    model = cls(class_num=3,num_of_blocks=9,training=True,dense_layers=[256,256])
+    model = cls(class_num=2,num_of_blocks=9,training=True,dense_layers=[256,256])
     # load checkpoint to continue training
     if checkpoint is not None:
         print("...Load checkpoint from {}".format(checkpoint))
@@ -156,7 +159,7 @@ def main(comment="No comment", checkpoint=None,collocation,model,dataset,validat
             loss_function,
             "The loss {} is not available".format(loss_function),
         )
-    criterion = criterion()
+    criterion = custom_loss.WeightedFocalLoss(weight=None, gamma=2,reduction='sum')
     optimizer = getattr(
         torch.optim, optimizers, "The optimizer {} is not available".format(optimizers)
     )
@@ -172,7 +175,7 @@ def main(comment="No comment", checkpoint=None,collocation,model,dataset,validat
     # scheduler = ReduceLROnPlateau(
     #     optimizer, save_method, patience=patiences, factor=lr_factor
     # )
-    scheduler = CosineAnnealingLR(optimizer, T_max=t_max, eta_min=min_lr)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min',factor=0.5,min_lr=0.00001,verbose=True,patience=5)
 
     # before training, let's create a file for logging model result
 
@@ -180,8 +183,8 @@ def main(comment="No comment", checkpoint=None,collocation,model,dataset,validat
 
     logger.log_initilize(log_file)
     print("Beginning training...")
+    time.sleep(3)
     # export the result to log file
-    f = open("saved/logs/traning_{}.txt".format(cfg["session"]["sess_name"]), "a")
     logging.info("-----")
     logging.info("session name: {} \n".format(cfg["session"]["sess_name"]))
     logging.info("session description: {} \n".format(comment))
@@ -212,26 +215,6 @@ def main(comment="No comment", checkpoint=None,collocation,model,dataset,validat
                 i + 1, num_epoch, loss
             )
         )
-        print(
-            "Epoch {} / {} \n Training acc: {} - Other training metrics: ".format(
-                i + 1, num_epoch, train_result["accuracy_score"]
-            )
-        )
-        print(
-            "Epoch {} / {} \n Training loss: {} - Other training metrics: ".format(
-                i + 1, num_epoch, loss
-            )
-        )
-        f.write(
-            "Epoch {} / {} \n Training loss: {} - Other training metrics: ".format(
-                i + 1, num_epoch, loss
-            )
-        )
-        f.write(
-            "Epoch {} / {} \n Training acc: {} - Other training metrics: ".format(
-                i + 1, num_epoch, train_result["accuracy_score"]
-            )
-        )
         # tensorboard_writer.add_scalar("training accuracy",train_result["accuracy_score"],i + 1)
         # tensorboard_writer.add_scalar("training f1_score",train_result["f1_score"],i + 1)
         # tensorboard_writer.add_scalar("training metrics",loss,i + 1)
@@ -239,12 +222,7 @@ def main(comment="No comment", checkpoint=None,collocation,model,dataset,validat
         logging.info(
             " \n Validation loss : {} - Other validation metrics:".format(val_loss)
         )
-        print(
-            "Epoch {} / {} \n valid acc: {} - Other training metrics: ".format(
-                i + 1, num_epoch, val_result["accuracy_score"]
-            )
-        )
-        f.write(" \n Validation loss : {} - Other validation metrics:".format(val_loss))
+        
         # tensorboard_writer.add_scalar("valid accuracy",val_result["accuracy_score"],i + 1)
         # tensorboard_writer.add_scalar("valid f1_score",val_result["f1_score"],i + 1)
         # tensorboard_writer.add_scalar("valid metrics",val_loss,i + 1)
@@ -255,13 +233,9 @@ def main(comment="No comment", checkpoint=None,collocation,model,dataset,validat
             logging.info(
                 "Validation accuracy= "
                 + str(val_result["accuracy_score"])
-                + "===> Save best epoch"
+                + "===> Save best epoch \n"
             )
-            f.write(
-                "Validation accuracy= "
-                + str(val_result["accuracy_score"])
-                + "===> Save best epoch"
-            )
+
             best_val_acc = val_result["accuracy_score"]
             torch.save(
                 model.state_dict(),
@@ -277,26 +251,26 @@ def main(comment="No comment", checkpoint=None,collocation,model,dataset,validat
     # testing on test set
     test_data = cfg["data"]["test_csv_name"]
     data_path = cfg["data"]["data_path"]
-    test_df = pd.read_csv(test_data, usecols=["file_name", "label"])
+    test_df = pd.read_csv(test_data,delimiter='*',header=None)
 
     # prepare the dataset
-    testing_set = dataloader.ClassificationDataset(
-        test_df, data_path, transform.val_transform
+    testing_set = dataset(
+        test_df, data_path, False
     )
 
     # make dataloader
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    test_loader = torch.utils.data.DataLoader(testing_set, batch_size=32, shuffle=False)
+    test_loader = torch.utils.data.DataLoader(testing_set, batch_size=32, shuffle=False,collate_fn=collocation)
     print("Inference on the testing set")
 
     # load the test model and making inference
-    test_model = cls.ClassificationModel(model_name=extractor_name).create_model()
+    test_model = cls(class_num=2,num_of_blocks=9,training=True,dense_layers=[256,256])
     model_path = os.path.join(
         "saved/models", time_str + "-" + cfg["train"]["save_as_name"]
     )
     test_model.load_state_dict(torch.load(model_path))
     test_model = test_model.to(device)
-    logging.info(tester.test_result(test_model, test_loader, device, cfg))
+    logging.info(tester.adaptive_test_result(test_model, test_loader, device, cfg))
 
     # saving torch models
     print("---End of testing phase----")
@@ -319,35 +293,42 @@ if __name__ == "__main__":
     # modify this part if you are using kfold
     # csv files of kfold should be in format : *_fold0.csv , _fold1.csv...
     fold_list = ["fold0", "fold1", "fold2", "fold3", "fold4"]
+    fold_list=["fold0"]
 
     # automate the validation split or not
-    if cfg["data"]["validation_ratio"] > 0 and cfg["data"]["validation_path"] == "":
+    if float(cfg["data"]["validation_ratio"]) > 0 and cfg["data"]["validation_csv_name"] == "":
         print("No validation set available, auto split the training into validation")
         validation_flag = cfg["data"]["validation_ratio"]
     else:
         validation_flag = 1
     # choose way of loading data (collocation)
     module_name = cfg["data"]["collocation"]
+    print(module_name)
     try:
-        collocation = importlib.import_module(
-            module_name, package="data_loader.collocation"
-        )
+        from utils.collocation import collocation as custom_collate
+        collocation = getattr(custom_collate,module_name) 
+        print("Successfully imported collocation module")
+    
     except:
         print("Cannot import data collocation module".format(module_name))
     # choose dataloader type
     module_name = cfg["data"]["data.class"]
+    
     try:
-        dataset = importlib.import_module(
-            module_name, package="data_loader.dataloader"
+        dataset = getattr(
+            data_loader.dataloader,module_name
         )
+        print("Successfully imported data loader module")
+    
     except:
         print("Cannot import data loader module".format(module_name))
     # choose model classification class
-    module_name = cfg["data"]["model.class"]
+    module_name = cfg["train"]["model.class"]
     try:
-        cls = importlib.import_module(module_name, package="model.classification")
+        cls = getattr(model,module_name)
+        print("Successfully imported model module")
     except:
-        print("Cannot import data loader module".format(module_name))
+        print("Cannot import model module".format(module_name))
 
     # begin the experiment
 

@@ -5,7 +5,7 @@ from torch.autograd import Variable
 device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
 class FocalLoss(nn.Module):
-   def __init__(self, class_num, alpha=None, gamma=2, size_average=True):
+   def __init__(self, class_num=2, alpha=None, gamma=2, size_average=True):
        super(FocalLoss, self).__init__()
        if alpha is None:
            self.alpha = Variable(torch.ones(class_num, 1))
@@ -41,3 +41,18 @@ class FocalLoss(nn.Module):
        else:
            loss = batch_loss.sum()
        return loss
+
+class WeightedFocalLoss(nn.modules.loss._WeightedLoss):
+    		
+	def __init__(self, weight=None, gamma=2,reduction='mean'):
+		super(WeightedFocalLoss, self).__init__(weight,reduction=reduction)
+		self.gamma = gamma
+		device = torch.device("cuda:0")
+		self.weight = weight
+		# self.weight = torch.Tensor([0.15,0.25,0.5,0.000]).to(device) #weight parameter will act as the alpha parameter to balance class weights
+
+	def forward(self, input, target):
+		ce_loss = F.cross_entropy(input, target,reduction=self.reduction,weight=self.weight) 
+		pt = torch.exp(-ce_loss)
+		focal_loss = ((1 - pt) ** self.gamma * ce_loss).mean()
+		return focal_loss

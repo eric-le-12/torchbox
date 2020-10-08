@@ -3,6 +3,7 @@ import torch.nn as nn
 import torchvision.models as models
 import pretrainedmodels as ptm
 import ssl
+import time
 from efficientnet_pytorch import EfficientNet
 from model.spp import SPPLayer
 from ensemble.ensemble_model import MyEnsemble
@@ -78,41 +79,41 @@ class ClassificationModel:
         # print(model)
         return model
 
-class Lecnet():
+class Lecnet(nn.Module):
     # here present the code coding for the Lecnet model in the paper
     def __init__(self,class_num=3,num_of_blocks=9,training=True,dense_layers=[256,256]):
+        super(Lecnet, self).__init__()
         self.num_blocks = num_of_blocks
         self.class_num = class_num
         self.training = training
         self.model = nn.Sequential()
 
-        for block_num in self.num_blocks:
+        for block_num in range(0,self.num_blocks):
             # add cnn blocks
             if (block_num==0):
                 in_channels = 1
             else:
-                in_channels = 64
-            out_channels = 64
-            self.model.add_module('block_{}_cnn'.format(block_num),self.depthblock(block_index,in_channels,out_channels))
+                in_channels = 128
+            out_channels = 128
+            self.model.add_module('block_{}_cnn'.format(block_num),self.depthblock(block_num,in_channels,out_channels))
 
         self.model.add_module('avg_pool', nn.AdaptiveAvgPool1d(8))
-
-        for index,value in dense_layers:
+        self.model.add_module('Flatten', nn.Flatten())
+        for index,value in enumerate(dense_layers):
             if (index==0):
-                in_dense = 8
+                in_dense = 1024
             else:
-                in_dense = dense_layer[index-1]
+                in_dense = dense_layers[index-1]
             # add dense layers
             self.model.add_module('dense_{}'.format(index), 
                                     nn.Linear(in_features = in_dense,
                                             out_features = 256, 
                                             bias=True))
-            # add activation function
-            if (index==(dense_layer-1)):
-                # add activation after final dense function
-                self.dense.add_module('dense_activation_{}'.format(len(feature_size)-2),
-                                    nn.Tanh())
-
+            # # add activation function
+            # if (index==(len(dense_layers)-1)):
+            #     # add activation after final dense function
+            #     self.model.add_module('dense_activation_{}',
+            #                         nn.Tanh())
         self.meta_net = nn.Sequential(nn.Linear(1, 64,bias=True),
                                 #   nn.BatchNorm1d(64),
                                   nn.Tanh(),
@@ -125,7 +126,7 @@ class Lecnet():
 
 
         self.out_1 =  nn.Linear(256+128, 128,bias=True)
-        self.out_2 = nn.Linear(128,2,bias=True)
+        self.out_2 = nn.Linear(128,self.class_num,bias=True)
 
     def depthblock(self,block_index,in_channels,out_channels):
         block = nn.Sequential()
@@ -135,14 +136,14 @@ class Lecnet():
                     nn.Conv1d(in_channels = in_channels, \
                               out_channels = in_channels, \
                               kernel_size = 3, \
-                              stride= 2, \
+                              stride= 1, \
                               padding= 1, \
                               dilation=1, \
                               groups=in_channels, \
                               bias=True, \
                               padding_mode='zeros'))
         block.add_module('BatchNorm_{}_1,1'.format(block_index), \
-                        nn.BatchNorm1d(in_channels))
+                        nn.InstanceNorm1d(in_channels))
         block.add_module('relu_{}_1'.format(block_index),\
                         nn.ReLU())
         # if self.train_:
@@ -152,16 +153,17 @@ class Lecnet():
                     nn.Conv1d(in_channels = in_channels, \
                               out_channels = out_channels, \
                               kernel_size = 1, \
-                              stride= 2, \
+                              stride= 1, \
                               padding= 1, \
                               dilation=1, \
                               groups=1, \
                               bias=True, \
                               padding_mode='zeros'))
         block.add_module('BatchNorm_{}_1,2'.format(block_index),\
-                        nn.BatchNorm1d(out_channels))
+                        nn.InstanceNorm1d(out_channels))
         block.add_module('relu_{}_1'.format(block_index),\
                         nn.ReLU())
+        pooling_kernel_size = 1
         if pooling_kernel_size>1:
           block.add_module('maxpool_{}'.format(block_index),\
                           nn.MaxPool1d(kernel_size = 2, \
@@ -170,7 +172,7 @@ class Lecnet():
                                     dilation=1, \
                                     return_indices=False, \
                                     ceil_mode=False))
-        if self.train_:
+        if self.training:
           block.add_module('dropout_{}_2'.format(block_index),\
                           nn.Dropout(p = 0.2))
 
@@ -179,8 +181,9 @@ class Lecnet():
     def forward(self, data, meta):
         # batch_size = data.shape[0]
         batch_size = 1
+        # data = data.view(1,1,3850)
         # print(meta.view(batch_size,1).shape)
-        features = self.model(data.view(batch_size, self.input_size[0],-1))
+        features = self.model(data)
         features_meta = self.meta_net(meta.view(batch_size,1))
         # print(features.shape)
         # print(features_meta.shape)
@@ -189,7 +192,7 @@ class Lecnet():
         # output = self.out_1(features)
         output = self.out_2(output)
         # output = features
-
+        # print(output.shape)
         return output
 
 

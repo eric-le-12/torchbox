@@ -20,46 +20,69 @@ def train_one_epoch(
     # pos_weight.to(device)
     # criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     model.train()
-    for data, target in train_loader:
+    for data, abnormal, target in train_loader:
         # move-tensors-to-GPU
-        data = data.to(device)
+        # print(data)
+        # print((data[0].shape))
+        # print(data[0].un)
+        # data = data.to(device)
+        abnormal=abnormal.to(device)
+        bs = len(data)
         # target=torch.Tensor(target)
-        target = target.to(device).float()
+        target = target.to(device).long()
         # clear-the-gradients-of-all-optimized-variables
         optimizer.zero_grad()
+        Y_pred = torch.empty((0,2)).to(device)
         # forward-pass: compute-predicted-outputs-by-passing-inputs-to-the-model
-        output = model(data)
-        
+        for i in range(0,bs):
+            input_ecg = data[i].unsqueeze(0).to(device)
+            # print(input_ecg.shape)
+            # print("shape:",abnormal.shape)
+            # print(abnormal[[i]].unsqueeze(0).shape)
+            preds = model(input_ecg,abnormal[[i]].unsqueeze(0).unsqueeze(0))
+            Y_pred = torch.cat((Y_pred,preds))
+        # output = model(data)
         # get the prediction label and target label
         # output = model(data)
         # preds = torch.argmax(output, axis=1).cpu().detach().numpy()
-        output_sigmoid = torch.sigmoid(output)
-        with torch.no_grad():            
-            preds = (output_sigmoid.cpu().numpy()>0.5).astype(float)
+        # output_sigmoid = torch.sigmoid(output)
+        # with torch.no_grad():            
+            # preds = (output_sigmoid.cpu().numpy()>0.5).astype(float)
         labels = target.cpu().numpy()
         # calculate-the-batch-loss
-      
-        loss = criterion(output,target)
+        loss = criterion(Y_pred,target)
         # backward-pass: compute-gradient-of-the-loss-wrt-model-parameters
         loss.backward()
         # perform-a-ingle-optimization-step (parameter-update)
         optimizer.step()
         # update-training-loss
-        train_loss += loss.item() * data.size(0)
+        train_loss += loss.item() * bs
         # calculate training metrics
+        preds = torch.softmax(Y_pred,dim=-1).cpu().detach().numpy()
+        preds = np.argmax(preds,axis=-1)
         train_metrics.step(labels, preds)
 
     # validate-the-model
     model.eval()
     all_labels = []
     all_preds = []
-    for data, target in test_loader:
-        data = data.to(device)
-        target = target.to(device).float()
+    for data, abnormal, target in test_loader:
+        # data = data.to(device)
+        abnormal = abnormal.to(device)
+        bs = len(data)
+        target = target.to(device).long()
         with torch.no_grad():
-            output = model(data)
-            output_sigmoid = torch.sigmoid(output)
-            preds = (output_sigmoid.cpu().numpy() >0.5).astype(float)
+            Y_pred = torch.empty((0,2)).to(device)
+        # forward-pass: compute-predicted-outputs-by-passing-inputs-to-the-model
+            for i in range(0,bs):
+                input_ecg = data[i].unsqueeze(0).to(device)
+                # print(input_ecg.shape)
+                # print("shape:",abnormal.shape)
+                # print(abnormal[[i]].unsqueeze(0).shape)
+                preds = model(input_ecg,abnormal[[i]].unsqueeze(0).unsqueeze(0))
+                Y_pred = torch.cat((Y_pred,preds))
+            # output_sigmoid = torch.sigmoid(output)
+            # preds = (output_sigmoid.cpu().numpy() >0.5).astype(float)
         labels = target.cpu().numpy()
         # preds = torch.argmax(output, axis=1).tolist()
             
@@ -67,13 +90,15 @@ def train_one_epoch(
        
         # all_labels.extend(np.array(labels,dtype="float32"))
         # all_preds.extend(preds)
-        loss = criterion(output, target)
+        loss = criterion(Y_pred, target)
         
         # update-average-validation-loss
-        valid_loss += loss.item() * data.size(0)
+        valid_loss += loss.item() * bs
+        preds = torch.softmax(Y_pred,dim=-1).cpu().detach().numpy()
+        preds = np.argmax(preds,axis=-1)
         val_metrics.step(labels, preds)
-    train_loss = train_loss / len(train_loader.sampler)
-    valid_loss = valid_loss / len(test_loader.sampler)
+    train_loss = train_loss / len(train_loader.dataset)
+    valid_loss = valid_loss / len(test_loader.dataset)
 
     return (
         train_loss,
