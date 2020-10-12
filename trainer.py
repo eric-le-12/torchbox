@@ -26,6 +26,7 @@ def train_one_epoch(
         # print((data[0].shape))
         # print(data[0].un)
         # data = data.to(device)
+        # print(abnormal,target)
         abnormal=abnormal.to(device)
         bs = len(data)
         # target=torch.Tensor(target)
@@ -39,7 +40,8 @@ def train_one_epoch(
             # print(input_ecg.shape)
             # print("shape:",abnormal.shape)
             # print(abnormal[[i]].unsqueeze(0).shape)
-            preds = model(input_ecg,abnormal[[i]].unsqueeze(0).unsqueeze(0))
+            # print(abnormal[[i]].unsqueeze(0).unsqueeze(0))
+            preds = model(input_ecg,abnormal[[i]].unsqueeze(0))
             Y_pred = torch.cat((Y_pred,preds))
         # output = model(data)
         # get the prediction label and target label
@@ -53,8 +55,10 @@ def train_one_epoch(
         loss = criterion(Y_pred,target)
         # backward-pass: compute-gradient-of-the-loss-wrt-model-parameters
         loss.backward()
+        # torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
         # perform-a-ingle-optimization-step (parameter-update)
         optimizer.step()
+        
         # update-training-loss
         train_loss += loss.item() * bs
         # calculate training metrics
@@ -79,7 +83,7 @@ def train_one_epoch(
                 # print(input_ecg.shape)
                 # print("shape:",abnormal.shape)
                 # print(abnormal[[i]].unsqueeze(0).shape)
-                preds = model(input_ecg,abnormal[[i]].unsqueeze(0).unsqueeze(0))
+                preds = model(input_ecg,abnormal[[i]].unsqueeze(0))
                 Y_pred = torch.cat((Y_pred,preds))
             # output_sigmoid = torch.sigmoid(output)
             # preds = (output_sigmoid.cpu().numpy() >0.5).astype(float)
@@ -88,15 +92,18 @@ def train_one_epoch(
             
         # labels = target.tolist()
        
-        # all_labels.extend(np.array(labels,dtype="float32"))
-        # all_preds.extend(preds)
+
         loss = criterion(Y_pred, target)
         
         # update-average-validation-loss
         valid_loss += loss.item() * bs
         preds = torch.softmax(Y_pred,dim=-1).cpu().detach().numpy()
         preds = np.argmax(preds,axis=-1)
-        val_metrics.step(labels, preds)
+        all_labels.extend(np.array(labels,dtype="int32"))
+        all_preds.extend(preds)
+    val_metrics.step(all_labels, all_preds)
+    # print(all_preds)
+    # print(all_labels)
     train_loss = train_loss / len(train_loader.dataset)
     valid_loss = valid_loss / len(test_loader.dataset)
 
@@ -104,5 +111,5 @@ def train_one_epoch(
         train_loss,
         valid_loss,
         train_metrics.epoch(),
-        val_metrics.epoch(),
+        val_metrics.last_step_metrics(),
     )

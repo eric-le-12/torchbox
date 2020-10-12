@@ -15,12 +15,10 @@ class Metrics:
                 skmetrics, metric, "The metric {} is not implemented".format(metric)
             )
             # check if metric require average method, if yes set to 'micro' or 'macro' or 'None'
-            try:
-                self.metric_dict[metric].append(
-                    do_metric(labels, preds, average="samples")
-                )
-            except:
-                self.metric_dict[metric].append(do_metric(labels, preds))
+       
+            self.metric_dict[metric].append(
+                    do_metric(labels, preds, average="macro"))
+          
 
     def epoch(self):
         # calculate metrics for an entire epoch

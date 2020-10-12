@@ -120,7 +120,7 @@ def adaptive_test_result(model, test_loader, device,cfg):
     to_write.close()
     print(len(list_label))
     print(len(list_pres))
-    return (classification_report(list_label, list_pres, target_names=cfg["data"]["label_dict"]))
+    return (classification_report(list_label, list_pres, digits=4,target_names=cfg["data"]["label_dict"]))
 
 def main():
     print("Testing process beginning here....")

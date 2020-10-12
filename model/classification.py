@@ -96,12 +96,12 @@ class Lecnet(nn.Module):
                 in_channels = 128
             out_channels = 128
             self.model.add_module('block_{}_cnn'.format(block_num),self.depthblock(block_num,in_channels,out_channels))
-
-        self.model.add_module('avg_pool', nn.AdaptiveAvgPool1d(8))
+        ft=16
+        self.model.add_module('avg_pool', nn.AdaptiveMaxPool1d(ft))
         self.model.add_module('Flatten', nn.Flatten())
         for index,value in enumerate(dense_layers):
             if (index==0):
-                in_dense = 1024
+                in_dense = ft*out_channels
             else:
                 in_dense = dense_layers[index-1]
             # add dense layers
@@ -112,8 +112,8 @@ class Lecnet(nn.Module):
             # # add activation function
             # if (index==(len(dense_layers)-1)):
             #     # add activation after final dense function
-            #     self.model.add_module('dense_activation_{}',
-            #                         nn.Tanh())
+            self.model.add_module('dense_activation_{}',
+                                nn.Tanh())
         self.meta_net = nn.Sequential(nn.Linear(1, 64,bias=True),
                                 #   nn.BatchNorm1d(64),
                                   nn.Tanh(),
@@ -142,10 +142,11 @@ class Lecnet(nn.Module):
                               groups=in_channels, \
                               bias=True, \
                               padding_mode='zeros'))
-        block.add_module('BatchNorm_{}_1,1'.format(block_index), \
-                        nn.InstanceNorm1d(in_channels))
+
         block.add_module('relu_{}_1'.format(block_index),\
                         nn.ReLU())
+        block.add_module('BatchNorm_{}_1,1'.format(block_index), \
+                        nn.InstanceNorm1d(in_channels))                
         # if self.train_:
         #   block.add_module('dropout-{}-1'.format(block_index),\
         #                   nn.Dropout(p = 0.05))
@@ -159,10 +160,11 @@ class Lecnet(nn.Module):
                               groups=1, \
                               bias=True, \
                               padding_mode='zeros'))
-        block.add_module('BatchNorm_{}_1,2'.format(block_index),\
-                        nn.InstanceNorm1d(out_channels))
+
         block.add_module('relu_{}_1'.format(block_index),\
                         nn.ReLU())
+        block.add_module('BatchNorm_{}_1,2'.format(block_index),\
+                        nn.InstanceNorm1d(out_channels))                
         pooling_kernel_size = 1
         if pooling_kernel_size>1:
           block.add_module('maxpool_{}'.format(block_index),\

@@ -70,11 +70,11 @@ def main(collocation,model,dataset,validation_flag,current_fold,comment="No comm
     # train, test, _, _ = dataloader.data_split(training_set, validation_split)
 
     training_set = dataset(
-        training_set, data_path, True
+        training_set, data_path, padding=True,normalize=True
     )
 
     testing_set = dataset(
-        valid_set, data_path, False
+        valid_set, data_path, padding=True,normalize=True
     )
     # create dataloaders
     # global train_loader
@@ -112,7 +112,7 @@ def main(collocation,model,dataset,validation_flag,current_fold,comment="No comm
         # create classfier
         # replace the last linear layer with your custom classifier
         # model._avg_pooling = SPPLayer([1,2,4])
-        model._fc = classifier
+        # model._fc = classifier
         # model.last_linear = self.cls
         # select with layers to unfreeze
         params = list(model.parameters())
@@ -130,6 +130,9 @@ def main(collocation,model,dataset,validation_flag,current_fold,comment="No comm
     # convert to suitable device
     # global model
     model = model.to(device)
+    print(sum(p.numel() for p in model.parameters()))
+    time.sleep(4)
+
     logging.info("Model created...")
 
     # create a metric for evaluating
@@ -175,7 +178,7 @@ def main(collocation,model,dataset,validation_flag,current_fold,comment="No comm
     # scheduler = ReduceLROnPlateau(
     #     optimizer, save_method, patience=patiences, factor=lr_factor
     # )
-    scheduler = ReduceLROnPlateau(optimizer, mode='min',factor=0.5,min_lr=0.00001,verbose=True,patience=5)
+    scheduler = ReduceLROnPlateau(optimizer, mode='min',factor=0.5,min_lr=0.00001,verbose=True,patience=3)
 
     # before training, let's create a file for logging model result
 
@@ -229,14 +232,14 @@ def main(collocation,model,dataset,validation_flag,current_fold,comment="No comm
         logging.info(val_result)
         logging.info("\n")
         # saving epoch with best validation accuracy
-        if best_val_acc < float(val_result["accuracy_score"]):
+        if best_val_acc < float(val_result["f1_score"]):
             logging.info(
-                "Validation accuracy= "
-                + str(val_result["accuracy_score"])
+                "Validation f1= "
+                + str(val_result["f1_score"])
                 + "===> Save best epoch \n"
             )
 
-            best_val_acc = val_result["accuracy_score"]
+            best_val_acc = val_result["f1_score"]
             torch.save(
                 model.state_dict(),
                 "saved/models/" + time_str + "-" + cfg["train"]["save_as_name"],
@@ -255,12 +258,12 @@ def main(collocation,model,dataset,validation_flag,current_fold,comment="No comm
 
     # prepare the dataset
     testing_set = dataset(
-        test_df, data_path, False
+        test_df, data_path, padding=False, normalize=True
     )
 
     # make dataloader
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    test_loader = torch.utils.data.DataLoader(testing_set, batch_size=32, shuffle=False,collate_fn=collocation)
+    test_loader = torch.utils.data.DataLoader(testing_set, batch_size=1, shuffle=False,collate_fn=collocation)
     print("Inference on the testing set")
 
     # load the test model and making inference
