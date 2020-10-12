@@ -8,6 +8,7 @@ New version supports :
 * Support running from 3 different subsets instead of 2 in previous version
 
 """
+import re
 import importlib
 import json
 import time
@@ -36,7 +37,7 @@ import argparse
 # from torchsampler import ImbalancedDatasetSampler
 
 
-def main(collocation,model,dataset,validation_flag,current_fold,comment="No comment", checkpoint=None):
+def main(collocation,model,dataset,validation_flag,current_fold,comment="No comment", checkpoint=None,logger=None):
     # parser = argparse.ArgumentParser(description='NA')
     # parser.add_argument('-c', '--configure', default='cfgs/chexphoto.cfg', help='JSON file')
     # parser.add_argument('-cp', '--checkpoint', default=None, help = 'checkpoint path')
@@ -45,10 +46,12 @@ def main(collocation,model,dataset,validation_flag,current_fold,comment="No comm
     # # read configure file
     # with open(args.configure) as f:
     #     cfg = json.load(f)
-    time_str = str(datetime.now().strftime("%Y%m%d-%H%M"))
     # using parsed configurations to create a dataset
     # read training set
+    
     data = cfg["data"]["data_csv_name"]
+    data = re.sub(r"fold[0-9]",str(current_fold),data)
+    print("Reading training data from file: ",data)
     training_set = pd.read_csv(data,delimiter='*',header=None)
     
     # check if validation flag is on
@@ -56,6 +59,8 @@ def main(collocation,model,dataset,validation_flag,current_fold,comment="No comm
         # using custom validation set
         print("Creating validation set from file")
         valid = cfg["data"]["validation_csv_name"]
+        valid = re.sub(r"fold[0-9]",str(current_fold),valid)
+        print("Reading validation data from file: ",valid)
         valid_set = pd.read_csv(valid,delimiter='*',header=None)
     else:
         # auto divide validation set
@@ -182,9 +187,7 @@ def main(collocation,model,dataset,validation_flag,current_fold,comment="No comm
 
     # before training, let's create a file for logging model result
 
-    log_file = logger.make_file(cfg["session"]["sess_name"], time_str)
 
-    logger.log_initilize(log_file)
     print("Beginning training...")
     time.sleep(3)
     # export the result to log file
@@ -242,7 +245,7 @@ def main(collocation,model,dataset,validation_flag,current_fold,comment="No comm
             best_val_acc = val_result["f1_score"]
             torch.save(
                 model.state_dict(),
-                "saved/models/" + time_str + "-" + cfg["train"]["save_as_name"],
+                "saved/models/" + time_str + "-" + str(current_fold) + "-" +cfg["train"]["save_as_name"],
             )
         scheduler.step(val_loss)
         # else:
@@ -254,7 +257,10 @@ def main(collocation,model,dataset,validation_flag,current_fold,comment="No comm
     # testing on test set
     test_data = cfg["data"]["test_csv_name"]
     data_path = cfg["data"]["data_path"]
+    test_data = re.sub(r"fold[0-9]",str(current_fold),test_data)
+    print("reading testing data from file: ",test_data)
     test_df = pd.read_csv(test_data,delimiter='*',header=None)
+    
 
     # prepare the dataset
     testing_set = dataset(
@@ -269,7 +275,7 @@ def main(collocation,model,dataset,validation_flag,current_fold,comment="No comm
     # load the test model and making inference
     test_model = cls(class_num=2,num_of_blocks=9,training=True,dense_layers=[256,256])
     model_path = os.path.join(
-        "saved/models", time_str + "-" + cfg["train"]["save_as_name"]
+        "saved/models", time_str + "-" + str(current_fold) + "-" + cfg["train"]["save_as_name"]
     )
     test_model.load_state_dict(torch.load(model_path))
     test_model = test_model.to(device)
@@ -287,16 +293,17 @@ if __name__ == "__main__":
     parser.add_argument("-cp", "--checkpoint", default=None, help="checkpoint path")
     args = parser.parse_args()
     checkpoint = args.checkpoint
+
     # read configure file
     with open(args.configure) as f:
         cfg = json.load(f)
 
     # comment for this experiment: leave here
     comment = "First demo comparison"
+    
     # modify this part if you are using kfold
     # csv files of kfold should be in format : *_fold0.csv , _fold1.csv...
     fold_list = ["fold0", "fold1", "fold2", "fold3", "fold4"]
-    fold_list=["fold0"]
 
     # automate the validation split or not
     if float(cfg["data"]["validation_ratio"]) > 0 and cfg["data"]["validation_csv_name"] == "":
@@ -304,9 +311,9 @@ if __name__ == "__main__":
         validation_flag = cfg["data"]["validation_ratio"]
     else:
         validation_flag = 1
+    
     # choose way of loading data (collocation)
     module_name = cfg["data"]["collocation"]
-    print(module_name)
     try:
         from utils.collocation import collocation as custom_collate
         collocation = getattr(custom_collate,module_name) 
@@ -314,6 +321,7 @@ if __name__ == "__main__":
     
     except:
         print("Cannot import data collocation module".format(module_name))
+    
     # choose dataloader type
     module_name = cfg["data"]["data.class"]
     
@@ -325,6 +333,7 @@ if __name__ == "__main__":
     
     except:
         print("Cannot import data loader module".format(module_name))
+    
     # choose model classification class
     module_name = cfg["train"]["model.class"]
     try:
@@ -333,7 +342,10 @@ if __name__ == "__main__":
     except:
         print("Cannot import model module".format(module_name))
 
-    # begin the experiment
+    # create logger
+    time_str = str(datetime.now().strftime("%Y%m%d-%H%M"))
+    log_file = logger.make_file(cfg["session"]["sess_name"], time_str)
+    logger.log_initilize(log_file)
 
     for fold in fold_list:
         # running at fold n
@@ -346,5 +358,6 @@ if __name__ == "__main__":
             model=cls,
             dataset=dataset,
             validation_flag=validation_flag,
-            current_fold=fold
+            current_fold=fold,
+            logger= logger
         )

@@ -31,7 +31,7 @@ def log_initilize(log_path):
     # logger.addHandler(handler)
 
     # create error file handler and set level to error
-    handler = logging.FileHandler(log_path, "w", encoding=None, delay="true")
+    handler = logging.FileHandler(log_path, "a", encoding=None, delay="true")
     handler.setLevel(logging.INFO)
     formatter = logging.Formatter("%(message)s")
     handler.setFormatter(formatter)
