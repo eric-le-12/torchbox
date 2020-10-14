@@ -2,6 +2,8 @@ import model
 import torch
 import torch.nn as nn
 import numpy as np
+import time
+
 def train_one_epoch(
     model,
     train_loader,
@@ -18,9 +20,10 @@ def train_one_epoch(
     valid_loss = 0
     # pos_weight = torch.FloatTensor([2,3,2,3,1]).to(device)
     # pos_weight.to(device)
-    # criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
-    model.train()
+    # criterion = nn.CrossEntropyLoss(reduction='mean')
+    print("LR : {} \n".format(optimizer.param_groups[0]['lr']))
     for data, abnormal, target in train_loader:
+        model.train()
         # move-tensors-to-GPU
         # print(data)
         # print((data[0].shape))
@@ -41,7 +44,9 @@ def train_one_epoch(
             # print("shape:",abnormal.shape)
             # print(abnormal[[i]].unsqueeze(0).shape)
             # print(abnormal[[i]].unsqueeze(0).unsqueeze(0))
+            # unblock the below cmt to back to the 2 branch mode
             preds = model(input_ecg,abnormal[[i]].unsqueeze(0))
+            # preds = model(input_ecg)
             Y_pred = torch.cat((Y_pred,preds))
         # output = model(data)
         # get the prediction label and target label
@@ -55,7 +60,9 @@ def train_one_epoch(
         loss = criterion(Y_pred,target)
         # backward-pass: compute-gradient-of-the-loss-wrt-model-parameters
         loss.backward()
-        # torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
+        # if(loss.item()>100):
+        #     print(torch.softmax(Y_pred,dim=-1),target)
         # perform-a-ingle-optimization-step (parameter-update)
         optimizer.step()
         
@@ -84,6 +91,8 @@ def train_one_epoch(
                 # print("shape:",abnormal.shape)
                 # print(abnormal[[i]].unsqueeze(0).shape)
                 preds = model(input_ecg,abnormal[[i]].unsqueeze(0))
+                # unblock below comment for 2 branch
+                # preds = model(input_ecg)
                 Y_pred = torch.cat((Y_pred,preds))
             # output_sigmoid = torch.sigmoid(output)
             # preds = (output_sigmoid.cpu().numpy() >0.5).astype(float)

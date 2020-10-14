@@ -16,6 +16,7 @@ import utils
 from model import classification as model
 import data_loader
 from torchsampler import ImbalancedDatasetSampler
+import neptune
 # from data_loader import dataloader
 from data_loader.dataloader import data_split
 from utils import metrics as metrics
@@ -103,6 +104,8 @@ def main(collocation,model,dataset,validation_flag,current_fold,comment="No comm
     # extractor_name = cfg["train"]["extractor"]
     # model = cls(model_name=extractor_name).create_model()
     model = cls(class_num=2,num_of_blocks=9,training=True,dense_layers=[256,256])
+    for param in model.parameters():
+        param.requires_grad = True
     # model = cls( num_blocks = 8, in_channels=1,out_channels=64,bottleneck_channels=0,kernel_sizes=8,num_pred_classes=2)
     # load checkpoint to continue training
     if checkpoint is not None:
@@ -170,7 +173,7 @@ def main(collocation,model,dataset,validation_flag,current_fold,comment="No comm
             loss_function,
             "The loss {} is not available".format(loss_function),
         )
-    criterion = custom_loss.WeightedFocalLoss(weight=None, gamma=2,reduction='mean')
+    criterion = custom_loss.WeightedFocalLoss(weight=None, gamma=2,reduction='sum')
     # criterion = nn.CrossEntropyLoss(reduction='none')
     optimizer = getattr(
         torch.optim, optimizers, "The optimizer {} is not available".format(optimizers)
@@ -178,9 +181,9 @@ def main(collocation,model,dataset,validation_flag,current_fold,comment="No comm
     max_lr = 3e-3  # Maximum LR
     min_lr = 1e-5  # Minimum LR
     t_max = 10  # How many epochs to go from max_lr to min_lr
-    # optimizer = torch.optim.Adam(
-    # params=model.parameters(), lr=max_lr, amsgrad=False)
-    optimizer = optimizer(model.parameters(), lr=learning_rate)
+    optimizer = torch.optim.SGD(
+    params=model.parameters(), lr=0.1, momentum=0.9)
+    # optimizer = optimizer(model.parameters(), lr=learning_rate)
     save_method = cfg["train"]["lr_scheduler_factor"]
     patiences = cfg["train"]["patience"]
     lr_factor = cfg["train"]["reduce_lr_factor"]
@@ -193,6 +196,8 @@ def main(collocation,model,dataset,validation_flag,current_fold,comment="No comm
 
 
     print("Beginning training...")
+    print("Traing shape: ", len(train_loader.dataset))
+    print("Validation shape: ", len(val_loader.dataset))
     time.sleep(3)
     # export the result to log file
     logging.info("-----")

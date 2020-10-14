@@ -44,7 +44,7 @@ class FocalLoss(nn.Module):
 
 class WeightedFocalLoss(nn.modules.loss._WeightedLoss):
     		
-	def __init__(self, weight=None, gamma=2,reduction='mean'):
+	def __init__(self, weight=None, gamma=2,reduction='none'):
 		super(WeightedFocalLoss, self).__init__(weight,reduction=reduction)
 		self.gamma = gamma
 		device = torch.device("cuda:0")

@@ -28,7 +28,7 @@ class TimeSeriesDataset:
 		if (self.padding):
 			left = int(data.shape[0] * random.uniform(0,0.15))
 			right = int(data.shape[0] * random.uniform(0,0.15))
-			data = np.pad(data,(left,right),'constant',constant_values=(0,0))
+			# data = np.pad(data,(left,right),'constant',constant_values=(0,0))
 		
 		# concat severity
 		if(int(severity)==3):
