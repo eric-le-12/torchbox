@@ -1,0 +1,16 @@
+Change from multi lead to benchmark
+
+file run_exp_2.py :
+uncomment model = cls (dong 294 va o train)
+import classification -> benchmark (dong 16)
+
+file tenes.cfg:
+sua data.model
+
+file trainer.py:
+dong 101 , dong 52 : uncomment (chi load input_ecg)
+dong  102, 53: comment
+
+file test.py:
+uncomment dong 114
+

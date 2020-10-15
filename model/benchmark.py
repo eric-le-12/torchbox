@@ -5,7 +5,6 @@ from .utils import Conv1dSamePadding
 
 from typing import cast, Union, List
 
-
 class InceptionModel(nn.Module):
     """A PyTorch implementation of the InceptionTime model.
     From https://arxiv.org/abs/1909.04939
@@ -68,14 +67,15 @@ class InceptionModel(nn.Module):
 
         # a global average pooling (i.e. mean of the time dimension) is why
         # in_features=channels[-1]
-        self.linear = nn.Sequential(nn.Linear(in_features=channels[-1], out_features=256),nn.Tanh(),nn.Linear(in_features=256, out_features=num_pred_classes))  
+        self.linear = nn.Linear(in_features=channels[-1], out_features=num_pred_classes)
 
     @staticmethod
     def _expand_to_blocks(value: Union[int, bool, List[int], List[bool]],
                           num_blocks: int) -> Union[List[int], List[bool]]:
         if isinstance(value, list):
-            assert len(value) == num_blocks, "wrong"
-                
+            assert len(value) == num_blocks, \
+                f'Length of inputs lists must be the same as num blocks, ' \
+                f'expected length {num_blocks}, got {len(value)}'
         else:
             value = [value] * num_blocks
         return value

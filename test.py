@@ -86,7 +86,7 @@ def test_result(model, test_loader, device,cfg):
     to_write.close()
     return (classification_report(list_label, list_pres, target_names=cfg["data"]["label_dict"]))
 
-def adaptive_test_result(model, test_loader, device,cfg):
+def adaptive_test_result(model, test_loader, device,cfg,num_of_class=2):
     # testing the model by turning model "Eval" mode
     model.eval()
     list_pres = []
@@ -110,7 +110,8 @@ def adaptive_test_result(model, test_loader, device,cfg):
                 # print(input_ecg.shape)
                 # print("shape:",abnormal.shape)
                 # print(abnormal[[i]].unsqueeze(0).shape)
-                preds = model(input_ecg,abnormal_3)
+                # preds = model(input_ecg,abnormal_3)
+                preds = model(input_ecg)
                 # preds = model(input_ecg,abnormal[[i]].unsqueeze(0).unsqueeze(0))
                 Y_pred = torch.cat((Y_pred,preds))
             preds = torch.softmax(Y_pred,dim=-1).cpu().detach().numpy()

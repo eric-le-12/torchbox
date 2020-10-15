@@ -13,6 +13,7 @@ def train_one_epoch(
     criterion,
     train_metrics,
     val_metrics,
+    num_of_class
 ):
 
     # training-the-model
@@ -37,7 +38,7 @@ def train_one_epoch(
         target = target.to(device).long()
         # clear-the-gradients-of-all-optimized-variables
         optimizer.zero_grad()
-        Y_pred = torch.empty((0,2)).to(device)
+        Y_pred = torch.empty((0,num_of_class)).to(device)
         # forward-pass: compute-predicted-outputs-by-passing-inputs-to-the-model
         for i in range(0,bs):
             input_ecg = data[i].unsqueeze(0).to(device)
@@ -48,8 +49,8 @@ def train_one_epoch(
             # print(abnormal[[i]].unsqueeze(0).unsqueeze(0))
             # unblock the below cmt to back to the 2 branch mode
             # preds = model(input_ecg,abnormal[[i]].unsqueeze(0))
-            preds = model(input_ecg,abnormal_3)
-            # preds = model(input_ecg)
+            # preds = model(input_ecg,abnormal_3)
+            preds = model(input_ecg)
             Y_pred = torch.cat((Y_pred,preds))
         # output = model(data)
         # get the prediction label and target label
@@ -87,7 +88,7 @@ def train_one_epoch(
         bs = len(data)
         target = target.to(device).long()
         with torch.no_grad():
-            Y_pred = torch.empty((0,2)).to(device)
+            Y_pred = torch.empty((0,num_of_class)).to(device)
         # forward-pass: compute-predicted-outputs-by-passing-inputs-to-the-model
             for i in range(0,bs):
                 input_ecg = data[i].unsqueeze(0).to(device)
@@ -96,9 +97,9 @@ def train_one_epoch(
                 # print("shape:",abnormal.shape)
                 # print(abnormal[[i]].unsqueeze(0).shape)
                 # preds = model(input_ecg,abnormal[[i]].unsqueeze(0))
-                preds = model(input_ecg,abnormal_3)
+                # preds = model(input_ecg,abnormal_3)
                 # unblock below comment for 2 branch
-                # preds = model(input_ecg)
+                preds = model(input_ecg)
                 Y_pred = torch.cat((Y_pred,preds))
             # output_sigmoid = torch.sigmoid(output)
             # preds = (output_sigmoid.cpu().numpy() >0.5).astype(float)
