@@ -20,10 +20,24 @@ class TimeSeriesDataset:
 	
 	def __getitem__(self,idx):
 		# read data information
-		data_path,abnormal,_,_,hr,severity = self.data.iloc[idx,:].values.tolist()
+		data_path,abnormal,pid,_,hr,severity = self.data.iloc[idx,:].values.tolist()
 		data = np.array(pd.read_csv(open(data_path,'r')), dtype = np.float).reshape(-1)
+		if ("Vien_Tim" in data_path):
+			to_be_replaced = "/data/hieu_0729/Vien_Tim/DII_Long_labeled_data/DII_abnormal/"
+			replace = "/data/Vien_Tim/D123_Short/DIII_Short/"
+			D3_path = data_path.replace(to_be_replaced,replace)
+			to_be_replaced = ".csv"
+			replace = "_III.csv"
+			D3_path = D3_path.replace(to_be_replaced,replace)
+		else:
+			D3_path =os.path.join("/data/Viet Gia Clinic/D123/DIII",pid+"_III.csv")
+		try:
+			data_3 = np.array(pd.read_csv(open(D3_path,'r')), dtype = np.float).reshape(-1) 
+		except:
+			data_3 = data.copy()
 		# normalize
 		data = self.std_normalize(data)
+		data_3 = self.std_normalize(data_3)
 		# padding if on
 		if (self.padding):
 			left = int(data.shape[0] * random.uniform(0,0.15))
@@ -42,8 +56,9 @@ class TimeSeriesDataset:
 		# choose which label to use
 		label_tensor = abnormal_tensor
 		data_tensor = torch.FloatTensor([data])
+		data_3_tensor = torch.FloatTensor([data_3])
 
-		return data_tensor,hr_tensor,label_tensor
+		return data_tensor,data_3_tensor,label_tensor
 
 	def __len__(self):
 		return len(self.data)

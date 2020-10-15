@@ -7,7 +7,7 @@ import time
 from efficientnet_pytorch import EfficientNet
 from model.spp import SPPLayer
 from ensemble.ensemble_model import MyEnsemble
-
+import copy
 
 class ClassificationModel:
     def __init__(self, model_name, pretrained=None, class_num=5):
@@ -118,18 +118,18 @@ class Lecnet(nn.Module):
             self.model.add_module('dropout  _{}',
                                 nn.Dropout(p=0.2))    
 
-        self.meta_net = nn.Sequential(nn.Linear(1, 64,bias=True),
-                                #   nn.BatchNorm1d(64),
-                                  nn.Tanh(),
-                                  nn.Dropout(p=0.2),
-                                  nn.Linear(64, 128,bias=True),
+        # self.meta_net = nn.Sequential(nn.Linear(1, 64,bias=True),
+        #                         #   nn.BatchNorm1d(64),
+        #                           nn.Tanh(),
+        #                           nn.Dropout(p=0.2),
+        #                           nn.Linear(64, 128,bias=True),
                                 
-                                  nn.Tanh(),
-                                  nn.Dropout(p=0.2))
+        #                           nn.Tanh(),
+        #                           nn.Dropout(p=0.2))
         
+        self.meta_net = copy.deepcopy(self.model)
 
-
-        self.out_1 =  nn.Linear(256+128, 128,bias=True)
+        self.out_1 =  nn.Linear(256+256, 128,bias=True)
         self.out_2 = nn.Linear(128,self.class_num,bias=True)
 
     def depthblock(self,block_index,in_channels,out_channels):
@@ -193,7 +193,9 @@ class Lecnet(nn.Module):
         # time.sleep(5)
         features = self.model(data)
         # print(features.shape)
-        features_meta = self.meta_net(meta.view(batch_size,1))
+        features_meta = self.meta_net(meta)
+
+        # features_meta = self.meta_net(meta.view(batch_size,1))
         # print(features.shape)
         # print(features_meta.shape)
         features_cat = torch.cat((features,features_meta),dim=1)

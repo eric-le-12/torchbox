@@ -103,10 +103,11 @@ def main(collocation,model,dataset,validation_flag,current_fold,comment="No comm
     # create a model
     # extractor_name = cfg["train"]["extractor"]
     # model = cls(model_name=extractor_name).create_model()
+    # model = cls( num_blocks = 3, in_channels=1,out_channels=64,bottleneck_channels=0,kernel_sizes=8,num_pred_classes=2)
+
     model = cls(class_num=2,num_of_blocks=9,training=True,dense_layers=[256,256])
     for param in model.parameters():
         param.requires_grad = True
-    # model = cls( num_blocks = 8, in_channels=1,out_channels=64,bottleneck_channels=0,kernel_sizes=8,num_pred_classes=2)
     # load checkpoint to continue training
     if checkpoint is not None:
         print("...Load checkpoint from {}".format(checkpoint))
@@ -181,20 +182,32 @@ def main(collocation,model,dataset,validation_flag,current_fold,comment="No comm
     max_lr = 3e-3  # Maximum LR
     min_lr = 1e-5  # Minimum LR
     t_max = 10  # How many epochs to go from max_lr to min_lr
-    optimizer = torch.optim.SGD(
-    params=model.parameters(), lr=0.1, momentum=0.9)
-    # optimizer = optimizer(model.parameters(), lr=learning_rate)
+    optimizer = optimizer(model.parameters(), lr=learning_rate,momentum=0.9)
     save_method = cfg["train"]["lr_scheduler_factor"]
     patiences = cfg["train"]["patience"]
     lr_factor = cfg["train"]["reduce_lr_factor"]
     # scheduler = ReduceLROnPlateau(
     #     optimizer, save_method, patience=patiences, factor=lr_factor
     # )
-    scheduler = ReduceLROnPlateau(optimizer, mode='min',factor=0.5,min_lr=0.00001,verbose=True,patience=5)
+    scheduler = ReduceLROnPlateau(optimizer, mode=save_method,factor=lr_factor,min_lr=0.00001,verbose=True,patience=patiences)
 
-    # before training, let's create a file for logging model result
+    # before training, let's create a neptune protocol for tracking experiment
+    neptune.init('deepbox/gtopia-ml')
+    
+    PARAMS = {    "loss_function" : cfg["optimizer"]["loss"],
+    "optimizers" : cfg["optimizer"]["name"],
+    "learning_rate" : cfg["optimizer"]["lr"],
+    "lr_factor" : cfg["train"]["reduce_lr_factor"],
+    "patiences" : cfg["train"]["patience"],
+    "loss_function" : cfg["optimizer"]["loss"],
+    "data_path" : cfg["data"]["data_csv_name"],
+    "batch_size" : batch_size
+    }
+    # create neptune experiment
+    neptune.create_experiment(name=comment+'_'+str(current_fold),params=PARAMS,tags=[str(current_fold),cfg["train"]["model.class"],"multilead"])
 
 
+    logging.info("Created experiment tracking protocol")
     print("Beginning training...")
     print("Traing shape: ", len(train_loader.dataset))
     print("Validation shape: ", len(val_loader.dataset))
@@ -223,6 +236,13 @@ def main(collocation,model,dataset,validation_flag,current_fold,comment="No comm
             val_metrics,
         )
 
+        # neptune logging
+        neptune.log_metric('train_loss',loss)
+        neptune.log_metric('validation_loss',val_loss)
+        for single_metric in train_result.keys():
+            neptune.log_metric("train_"+single_metric,train_result[single_metric])
+            neptune.log_metric("val_"+single_metric,val_result[single_metric])
+        
         # lr scheduling
 
         logging.info(
@@ -283,7 +303,7 @@ def main(collocation,model,dataset,validation_flag,current_fold,comment="No comm
 
     # load the test model and making inference
     test_model = cls(class_num=2,num_of_blocks=9,training=True,dense_layers=[256,256])
-    # test_model = cls( num_blocks = 8, in_channels=1,out_channels=64,bottleneck_channels=0,kernel_sizes=8,num_pred_classes=2)
+    # test_model = cls( num_blocks =3, in_channels=1,out_channels=64,bottleneck_channels=0,kernel_sizes=8,num_pred_classes=2)
 
     model_path = os.path.join(
         "saved/models", time_str + "-" + str(current_fold) + "-" + cfg["train"]["save_as_name"]
@@ -291,9 +311,14 @@ def main(collocation,model,dataset,validation_flag,current_fold,comment="No comm
     test_model.load_state_dict(torch.load(model_path))
     test_model = test_model.to(device)
     logging.info(tester.adaptive_test_result(test_model, test_loader, device, cfg))
+    f = open('test_report.txt', 'w')
+    f.write("Test results \n : {}".format(tester.adaptive_test_result(test_model, test_loader, device, cfg)))
+    f.close()
+    neptune.log_artifact('test_report.txt')
 
     # saving torch models
     print("---End of testing phase----")
+    neptune.stop()
 
 if __name__ == "__main__":
 
@@ -310,7 +335,7 @@ if __name__ == "__main__":
         cfg = json.load(f)
 
     # comment for this experiment: leave here
-    comment = "First demo comparison"
+    comment = "lecnet lead 2+3 5 fold"
     
     # modify this part if you are using kfold
     # csv files of kfold should be in format : *_fold0.csv , _fold1.csv...

@@ -1,0 +1,9 @@
+Test results 
+ :               precision    recall  f1-score   support
+
+           0     0.7826    0.9612    0.8627       206
+           1     0.9912    0.9425    0.9662       956
+
+   micro avg     0.9458    0.9458    0.9458      1162
+   macro avg     0.8869    0.9518    0.9145      1162
+weighted avg     0.9542    0.9458    0.9479      1162

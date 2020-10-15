@@ -98,17 +98,20 @@ def adaptive_test_result(model, test_loader, device,cfg):
     for data, abnormal, target in test_loader:
         # data = data.to(device)
         target = target.to(device).long()
-        abnormal = abnormal.to(device)
+        # remember to unlock for 2 branch
+        # abnormal = abnormal.to(device)
         bs = len(data)
 
         with torch.no_grad():
             Y_pred = torch.empty((0,2)).to(device)
             for i in range(0,bs):
                 input_ecg = data[i].unsqueeze(0).to(device)
+                abnormal_3 = abnormal[i].unsqueeze(0).to(device)
                 # print(input_ecg.shape)
                 # print("shape:",abnormal.shape)
                 # print(abnormal[[i]].unsqueeze(0).shape)
-                preds = model(input_ecg,abnormal[[i]].unsqueeze(0).unsqueeze(0))
+                preds = model(input_ecg,abnormal_3)
+                # preds = model(input_ecg,abnormal[[i]].unsqueeze(0).unsqueeze(0))
                 Y_pred = torch.cat((Y_pred,preds))
             preds = torch.softmax(Y_pred,dim=-1).cpu().detach().numpy()
             preds = np.argmax(preds,axis=-1)

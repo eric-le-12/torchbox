@@ -30,7 +30,8 @@ def train_one_epoch(
         # print(data[0].un)
         # data = data.to(device)
         # print(abnormal,target)
-        abnormal=abnormal.to(device)
+        # remember to unlock for 2 branch
+        # abnormal=abnormal.to(device)
         bs = len(data)
         # target=torch.Tensor(target)
         target = target.to(device).long()
@@ -40,12 +41,14 @@ def train_one_epoch(
         # forward-pass: compute-predicted-outputs-by-passing-inputs-to-the-model
         for i in range(0,bs):
             input_ecg = data[i].unsqueeze(0).to(device)
+            abnormal_3 = abnormal[i].unsqueeze(0).to(device)
             # print(input_ecg.shape)
             # print("shape:",abnormal.shape)
             # print(abnormal[[i]].unsqueeze(0).shape)
             # print(abnormal[[i]].unsqueeze(0).unsqueeze(0))
             # unblock the below cmt to back to the 2 branch mode
-            preds = model(input_ecg,abnormal[[i]].unsqueeze(0))
+            # preds = model(input_ecg,abnormal[[i]].unsqueeze(0))
+            preds = model(input_ecg,abnormal_3)
             # preds = model(input_ecg)
             Y_pred = torch.cat((Y_pred,preds))
         # output = model(data)
@@ -79,7 +82,8 @@ def train_one_epoch(
     all_preds = []
     for data, abnormal, target in test_loader:
         # data = data.to(device)
-        abnormal = abnormal.to(device)
+        # remember to unlock for 2 branch
+        # abnormal = abnormal.to(device)
         bs = len(data)
         target = target.to(device).long()
         with torch.no_grad():
@@ -87,10 +91,12 @@ def train_one_epoch(
         # forward-pass: compute-predicted-outputs-by-passing-inputs-to-the-model
             for i in range(0,bs):
                 input_ecg = data[i].unsqueeze(0).to(device)
+                abnormal_3 = abnormal[i].unsqueeze(0).to(device)
                 # print(input_ecg.shape)
                 # print("shape:",abnormal.shape)
                 # print(abnormal[[i]].unsqueeze(0).shape)
-                preds = model(input_ecg,abnormal[[i]].unsqueeze(0))
+                # preds = model(input_ecg,abnormal[[i]].unsqueeze(0))
+                preds = model(input_ecg,abnormal_3)
                 # unblock below comment for 2 branch
                 # preds = model(input_ecg)
                 Y_pred = torch.cat((Y_pred,preds))

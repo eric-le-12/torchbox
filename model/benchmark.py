@@ -68,7 +68,7 @@ class InceptionModel(nn.Module):
 
         # a global average pooling (i.e. mean of the time dimension) is why
         # in_features=channels[-1]
-        self.linear = nn.Sequential(nn.Linear(in_features=channels[-1], out_features=num_pred_classes),nn.Sigmoid())
+        self.linear = nn.Sequential(nn.Linear(in_features=channels[-1], out_features=256),nn.Tanh(),nn.Linear(in_features=256, out_features=num_pred_classes))  
 
     @staticmethod
     def _expand_to_blocks(value: Union[int, bool, List[int], List[bool]],

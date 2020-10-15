@@ -4,7 +4,7 @@ class collocation():
 
     def adaptive_collate(batch):
         # data = [item[0].permute(1,0) for item in batch]
-        abnormal = torch.FloatTensor([item[1] for item in batch])
+        abnormal = [item[1] for item in batch]
         # update with variable input size
         data = [item[0] for item in batch]
         # abnormal = torch.stack([item[2].squeeze(0) for item in batch])
