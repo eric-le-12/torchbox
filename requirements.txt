@@ -2,7 +2,10 @@ torch
 torchvision
 sklearn
 barbar
-opencv-python
+scikit-learn
 numpy
 pandas
 neptune-client
+pretrainedmodels
+torchsummary
+efficientnet_pytorch

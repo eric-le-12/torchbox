@@ -14,9 +14,8 @@ import importlib
 import json
 import time
 import utils
-from model import benchmark as model
+from model import classification as model
 import data_loader
-from torchsampler import ImbalancedDatasetSampler
 import neptune
 
 # from data_loader import dataloader
@@ -51,6 +50,7 @@ def main(
     comment="No comment",
     checkpoint=None,
     logger=None,
+    num_of_class = 2
 ):
 
     # read training set
@@ -94,16 +94,16 @@ def main(
     # create a model
     # extractor_name = cfg["train"]["extractor"]
     # model = cls(model_name=extractor_name).create_model()
-    model = cls(
-        num_blocks=6,
-        in_channels=1,
-        out_channels=64,
-        bottleneck_channels=0,
-        kernel_sizes=8,
-        num_pred_classes=2
-    )
+    # model = cls(
+    #     num_blocks=6,
+    #     in_channels=1,
+    #     out_channels=64,
+    #     bottleneck_channels=0,
+    #     kernel_sizes=8,
+    #     num_pred_classes=2
+    # )
 
-    # model = cls(class_num=2, num_of_blocks=9, training=True, dense_layers=[256, 256])
+    model = cls(class_num=2, num_of_blocks=9, training=True, dense_layers=[256, 256])
     for param in model.parameters():
         param.requires_grad = True
 
@@ -192,7 +192,7 @@ def main(
     neptune.create_experiment(
         name=comment + "_" + str(current_fold),
         params=PARAMS,
-        tags=[str(current_fold), cfg["train"]["model.class"], "multilead"],
+        tags=[str(current_fold), cfg["train"]["model.class"], cfg["data"]["mode"]],
     )
 
     logging.info("Created experiment tracking protocol")
@@ -208,8 +208,7 @@ def main(
     logging.info(model)
     logging.info("\n")
     logging.info("CONFIGS \n")
-    # logging the configs:
-    # logging.info(f.read())
+
     # training models
     num_epoch = int(cfg["train"]["num_epoch"])
     best_val_acc = 0
@@ -240,17 +239,12 @@ def main(
                 i + 1, num_epoch, loss
             )
         )
-        # tensorboard_writer.add_scalar("training accuracy",train_result["accuracy_score"],i + 1)
-        # tensorboard_writer.add_scalar("training f1_score",train_result["f1_score"],i + 1)
-        # tensorboard_writer.add_scalar("training metrics",loss,i + 1)
+
         logging.info(train_result)
         logging.info(
             " \n Validation loss : {} - Other validation metrics:".format(val_loss)
         )
 
-        # tensorboard_writer.add_scalar("valid accuracy",val_result["accuracy_score"],i + 1)
-        # tensorboard_writer.add_scalar("valid f1_score",val_result["f1_score"],i + 1)
-        # tensorboard_writer.add_scalar("valid metrics",val_loss,i + 1)
         logging.info(val_result)
         logging.info("\n")
         # saving epoch with best validation accuracy
@@ -272,11 +266,6 @@ def main(
                 + cfg["train"]["save_as_name"],
             )
         scheduler.step(val_loss)
-        # else:
-        #     # logging.info(
-        #     #     "Validation accuracy= "+ str(val_result["accuracy_score"])+ "===> No saving"
-        #     # )
-        #     continue
 
     # testing on test set
     test_data = cfg["data"]["test_csv_name"]
@@ -296,17 +285,17 @@ def main(
     print("Inference on the testing set")
 
     # load the test model and making inference
-    # test_model = cls(
-    #     class_num=2, num_of_blocks=9, training=True, dense_layers=[256, 256]
-    # )
     test_model = cls(
-        num_blocks=6,
-        in_channels=1,
-        out_channels=64,
-        bottleneck_channels=0,
-        kernel_sizes=8,
-        num_pred_classes=2,
+        class_num=2, num_of_blocks=9, training=True, dense_layers=[256, 256]
     )
+    # test_model = cls(
+    #     num_blocks=6,
+    #     in_channels=1,
+    #     out_channels=64,
+    #     bottleneck_channels=0,
+    #     kernel_sizes=8,
+    #     num_pred_classes=2,
+    # )
 
     model_path = os.path.join(
         "saved/models",
@@ -324,8 +313,20 @@ def main(
         )
     )
     f.close()
+    
+    # send some versions of code
     neptune.log_artifact("test_report.txt")
+    neptune.log_artifact("data_loader/dataloader.py")
+    neptune.log_artifact("cfgs/tenes.cfg")
+    neptune.log_artifact("trainer.py")
+    neptune.log_artifact("test.py")
+    neptune.log_artifact("run_exp_2.py")
 
+    if (cfg["train"]["model.class"]=="Lecnet"):
+        neptune.log_artifact("model/classification.py")
+    else:
+        neptune.log_artifact("model/benchmark.py")
+    
     # saving torch models
     print("---End of testing phase----")
     neptune.stop()
@@ -346,11 +347,11 @@ if __name__ == "__main__":
         cfg = json.load(f)
 
     # comment for this experiment: leave here
-    comment = "lecnet lead 2+3 5 fold"
+    comment = cfg["session"]["sess_name"]
 
     # modify this part if you are using kfold
     # csv files of kfold should be in format : *_fold0.csv , _fold1.csv...
-    fold_list = ["fold0", "fold1", "fold2", "fold3", "fold4"]
+    fold_list = cfg["data"]["fold_list"]
 
     # automate the validation split or not
     if (
@@ -400,7 +401,7 @@ if __name__ == "__main__":
         print("Cannot import model module".format(module_name))
 
     # get num of class
-    num_of_class = cfg["data"]["label_dict"]
+    num_of_class = len(cfg["data"]["label_dict"])
     # create logger
     time_str = str(datetime.now().strftime("%Y%m%d-%H%M"))
     log_file = logger.make_file(cfg["session"]["sess_name"], time_str)

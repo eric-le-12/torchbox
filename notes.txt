@@ -1,3 +1,5 @@
+REMEBER TO CHANGE COMMENT
+
 Change from multi lead to benchmark
 
 file run_exp_2.py :
@@ -14,3 +16,20 @@ dong  102, 53: comment
 file test.py:
 uncomment dong 114
 
+sua loss:
+run_exp_2.py dong 154
+
+change benchmark to multilead
+file run_exp_2.py:
+ (uncomment dong 106 va 288)
+import benchmark -> classification
+
+file tenes.cfg
+sua data.mode => multi
+model.class
+
+file trainer.py
+uncomment dong 52,101
+
+file test.py
+uncomment dong 113

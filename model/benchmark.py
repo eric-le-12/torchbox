@@ -1,8 +1,6 @@
 import torch
 from torch import nn
-
 from .utils import Conv1dSamePadding
-
 from typing import cast, Union, List
 
 class InceptionModel(nn.Module):

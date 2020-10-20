@@ -20,29 +20,19 @@ class TimeSeriesDataset:
 	
 	def __getitem__(self,idx):
 		# read data information
-		data_path,abnormal,pid,_,hr,severity = self.data.iloc[idx,:].values.tolist()
-		data = np.array(pd.read_csv(open(data_path,'r')), dtype = np.float).reshape(-1)
-		if ("Vien_Tim" in data_path):
-			to_be_replaced = "/data/hieu_0729/Vien_Tim/DII_Long_labeled_data/DII_abnormal/"
-			replace = "/data/Vien_Tim/D123_Short/DIII_Short/"
-			D3_path = data_path.replace(to_be_replaced,replace)
-			to_be_replaced = ".csv"
-			replace = "_III.csv"
-			D3_path = D3_path.replace(to_be_replaced,replace)
-		else:
-			D3_path =os.path.join("/data/Viet Gia Clinic/D123/DIII",pid+"_III.csv")
-		try:
-			data_3 = np.array(pd.read_csv(open(D3_path,'r')), dtype = np.float).reshape(-1) 
-		except:
-			data_3 = data.copy()
+		data_path,abnormal,lead1,lead3,hr,severity = self.data.iloc[idx,:].values.tolist()
+		# data = np.array(pd.read_csv(open(data_path,'r')), dtype = np.float).reshape(-1)
+		data_3 = self.read_lead(lead3,"III")
+		data_2 = self.read_lead(data_path,"II")
 		# normalize
-		data = self.std_normalize(data)
+		# data = self.std_normalize(data)
 		data_3 = self.std_normalize(data_3)
+		data_2 = self.std_normalize(data_2)
 		# padding if on
-		if (self.padding):
-			left = int(data.shape[0] * random.uniform(0,0.15))
-			right = int(data.shape[0] * random.uniform(0,0.15))
-			# data = np.pad(data,(left,right),'constant',constant_values=(0,0))
+		# if (self.padding):
+		# 	left = int(data.shape[0] * random.uniform(0,0.15))
+		# 	right = int(data.shape[0] * random.uniform(0,0.15))
+		# 	# data = np.pad(data,(left,right),'constant',constant_values=(0,0))
 		
 		# concat severity
 		if(int(severity)==3):
@@ -55,7 +45,7 @@ class TimeSeriesDataset:
 		severity_tensor = torch.LongTensor([int(severity)])
 		# choose which label to use
 		label_tensor = abnormal_tensor
-		data_tensor = torch.FloatTensor([data])
+		data_tensor = torch.FloatTensor([data_2])
 		data_3_tensor = torch.FloatTensor([data_3])
 
 		return data_tensor,data_3_tensor,label_tensor
@@ -68,6 +58,13 @@ class TimeSeriesDataset:
 		std = np.math.sqrt(np.mean(np.power((data - mean), 2)))
 		return (data - mean) / std
 
+	def read_lead(self,data_path,lead_num="III"):
+		if ("VT" in data_path):
+			data_path = os.path.join( "/data/Vien_Tim/D123_Short/"+"D"+lead_num+"_Short",data_path)
+		else:
+			data_path = os.path.join( "/data/Viet_Gia_Clinic/D123/"+"D"+lead_num,data_path)
+		data = np.array(pd.read_csv(open(data_path,'r')), dtype = np.float).reshape(-1)
+		return data
 # define a data class
 class ClassificationDataset:
 	def __init__(self, data, data_path, transform, training=True):
