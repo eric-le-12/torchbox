@@ -1,7 +1,7 @@
 # torchbox - a fully customizable deep learning implementation solution in Pytorch
 implement and fine-tune your deep learning model in an easy, customizable and fastest way 
 
-@Lexuanhieu131297 - First version created by Oct 2019
+First version created by Oct 2018
 
 # Introduction
 
